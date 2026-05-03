@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sơ đồ Tuần tự UML - Hệ thống Quản Lý Nhà Hàng Phương Nam</title>
+    <!-- Nhúng thư viện Mermaid.JS -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#e3f2fd',
+                secondaryColor: '#fce4ec',
+                tertiaryColor: '#e8f5e9',
+                fontFamily: 'Arial',
+                fontSize: '14px'
+            }
+        });
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { color: #2c3e50; font-size: 2.2rem; margin-bottom: 10px; }
+        .header p { color: #7f8c8d; font-size: 1.1rem; }
+        .diagram-card { background: white; border-radius: 10px; padding: 30px; margin: 0 auto 40px; max-width: 1000px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .diagram-card h2 { color: #e74c3c; border-bottom: 2px solid #f1f2f6; padding-bottom: 15px; margin-top: 0; }
+        .desc { background: #fdfbfb; padding: 15px; border-left: 4px solid #3498db; margin-bottom: 20px; color: #555; line-height: 1.6; }
+        .mermaid { display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>SƠ ĐỒ TUẦN TỰ (SEQUENCE DIAGRAM) TOÀN HỆ THỐNG</h1>
+        <p>Hệ thống Quản lý nhà hàng Phương Nam & Tích hợp AI</p>
+    </div>
+
+    <!-- QUY TRÌNH 1 -->
+    <div class="diagram-card">
+        <h2>1. Quy trình Đặt Bàn Trực Tuyến</h2>
+        <div class="desc">Mô tả luồng người dùng đặt bàn qua website, hệ thống kiểm tra bàn trống và lưu thông tin, đồng thời gửi email thông báo xác nhận.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor KH as Khách Hàng
+                participant FE as Website
+                participant BE as Hệ thống (Máy chủ)
+                participant DB as Cơ sở dữ liệu
+                participant Mail as Dịch vụ Email
+
+                KH->>FE: Nhập thông tin đặt bàn (Ngày, Giờ, Số lượng người)
+                FE->>BE: Gửi yêu cầu đặt bàn
+                activate BE
+                BE->>DB: Kiểm tra số bàn trống
+                activate DB
+                DB-->>BE: Phản hồi còn bàn trống
+                deactivate DB
+                BE->>DB: Lưu thông tin đặt bàn (Trạng thái: Chờ xác nhận)
+                DB-->>BE: Trả về mã đặt bàn
+                BE->>Mail: Gửi email xác nhận tới Khách hàng
+                BE-->>FE: Phản hồi đặt bàn thành công
+                deactivate BE
+                FE-->>KH: Hiển thị thông báo "Đặt bàn thành công"
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 2 -->
+    <div class="diagram-card">
+        <h2>2. Quy trình Bán Hàng & Báo Bếp (Phục vụ tại quán)</h2>
+        <div class="desc">Quy trình nhân viên phục vụ ghi nhận món ăn, hệ thống lưu hóa đơn và gửi thông báo tự động xuống màn hình khu vực Bếp để chế biến.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor NV as Nhân viên Phục vụ
+                participant POS as Máy tính tiền (POS)
+                participant BE as Hệ thống (Máy chủ)
+                participant DB as Cơ sở dữ liệu
+                participant Kitchen as Màn hình Bếp
+                actor ĐầuBếp as Đầu Bếp
+
+                NV->>POS: Chọn bàn & Nhập các món khách gọi
+                POS->>BE: Gửi danh sách món ăn
+                activate BE
+                BE->>DB: Lưu Hóa đơn & Chi tiết món
+                BE->>DB: Tạo Phiếu báo bếp (Trạng thái: Đang chờ)
+                DB-->>BE: Xác nhận lưu thành công
+                BE->>Kitchen: Thông báo "Có món mới cần chế biến"
+                BE-->>POS: Phản hồi ghi nhận thành công
+                deactivate BE
+                POS-->>NV: Hiển thị bảng "Đang chế biến"
+
+                ĐầuBếp->>Kitchen: Hoàn thành chế biến -> Bấm "Xong"
+                Kitchen->>BE: Gửi thông báo "Món đã xong"
+                BE->>DB: Cập nhật trạng thái món ăn
+                BE->>POS: Thông báo "Món của bàn X đã xong"
+                POS-->>NV: Nhắc nhân viên mang món ra cho khách
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 3 -->
+    <div class="diagram-card">
+        <h2>3. Quy trình Trợ Lý Ảo (Tư vấn Khách hàng)</h2>
+        <div class="desc">Sự giao tiếp giữa người dùng và Trợ lý ảo AI trực tuyến. Máy chủ phân tích câu hỏi và lấy dữ liệu để tự động đưa ra câu trả lời tư vấn món ăn.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor KH as Khách Hàng
+                participant FE as Khung Chat trên Web
+                participant BE as Hệ thống (Máy chủ)
+                participant AI as Dịch vụ Trí tuệ Nhân tạo
+                participant DB as Cơ sở dữ liệu
+
+                KH->>FE: Hỏi: "Quán có món gì ngon không?"
+                FE->>BE: Gửi tin nhắn của khách
+                activate BE
+                BE->>AI: Chuyển nội dung cho Trợ lý ảo xử lý
+                activate AI
+                AI->>DB: Phân tích câu hỏi & Tìm thông tin món ăn
+                DB-->>AI: Cung cấp danh sách món ngon
+                AI->>AI: Soạn nội dung câu trả lời
+                AI-->>BE: Trả về "Dạ quán em có Món Gà Rán rất ngon..."
+                deactivate AI
+                BE->>DB: Lưu lịch sử cuộc trò chuyện
+                BE-->>FE: Gửi câu trả lời về website
+                deactivate BE
+                FE-->>KH: Hiển thị tin nhắn trả lời của Trợ lý ảo
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 4 -->
+    <div class="diagram-card">
+        <h2>4. Quy trình Cập nhật & Nhập Kho Nguyên Liệu</h2>
+        <div class="desc">Quản lý kho lập phiếu nhập hàng, hệ thống tiến hành kiểm tra nguồn cung cấp và tự động đối soát, cộng dồn số lượng nguyên liệu trong kho.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor QL as Quản lý kho
+                participant ADM as Trang Quản trị
+                participant BE as Hệ thống (Máy chủ)
+                participant DB as Cơ sở dữ liệu
+
+                QL->>ADM: Lập phiếu nhập kho (Tên nguyên liệu, Số lượng, Đơn giá)
+                ADM->>BE: Gửi thông tin phiếu nhập
+                activate BE
+                BE->>DB: Kiểm tra thông tin Nhà Cung Cấp
+                DB-->>BE: Nhà cung cấp hợp lệ
+                BE->>DB: Lưu Phiếu Nhập & Chi tiết phiếu
+                BE->>DB: Cộng dồn số lượng nguyên liệu vào kho
+                DB-->>BE: Báo cáo đã cập nhật
+                BE-->>ADM: Phản hồi "Nhập kho thành công"
+                deactivate BE
+                ADM-->>QL: Cập nhật lại số liệu trên màn hình
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 5 -->
+    <div class="diagram-card">
+        <h2>5. Quy trình Đặt hàng & Thanh toán Điện tử (MoMo)</h2>
+        <div class="desc">Khách hàng chọn món, điền thông tin nhận hàng và thanh toán không tiền mặt. Hệ thống liên kết tự động với ví MoMo để hoàn tất giao dịch.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor KH as Khách Hàng
+                participant FE as Website (Giỏ hàng)
+                participant BE as Hệ thống (Máy chủ)
+                participant MoMo as Cổng thanh toán MoMo
+                participant DB as Cơ sở dữ liệu
+
+                KH->>FE: Nhập địa chỉ nhận hàng & Chọn thanh toán MoMo
+                FE->>BE: Gửi yêu cầu đặt hàng
+                BE->>DB: Lưu đơn hàng (Trạng thái: Chờ thanh toán)
+                DB-->>BE: Cấp mã đơn hàng
+                BE->>MoMo: Yêu cầu tạo phiên thanh toán mới
+                MoMo-->>BE: Phản hồi đường dẫn thanh toán
+                BE-->>FE: Chuyển hướng người dùng sang trang MoMo
+                FE->>MoMo: Khách hàng quét mã QR để chuyển tiền
+                MoMo->>BE: Thông báo hệ thống giao dịch đã thành công
+                BE->>DB: Đổi trạng thái đơn hàng thành (Đã thanh toán)
+                BE-->>MoMo: Xác nhận đã nhận thông báo
+                MoMo-->>FE: Đưa người dùng trở về lại Website
+                FE-->>KH: Hiển thị giao diện "Đặt hàng thành công"
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 6 -->
+    <div class="diagram-card">
+        <h2>6. Quy trình Chấm công & Tính lương (Dành cho Quản lý)</h2>
+        <div class="desc">Quản lý thực hiện việc điểm danh, chấm công cho điểm làm việc trực tiếp trên hệ thống hằng ngày. Cuối kỳ, hệ thống hỗ trợ tự động tính toán phiếu lương.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor QL as Quản lý
+                participant ADM as Trang Quản trị
+                participant BE as Hệ thống (Máy chủ)
+                participant DB as Cơ sở dữ liệu
+                actor NV as Nhân viên (Xem lương)
+
+                QL->>ADM: Đánh dấu Có mặt/Vắng mặt cho từng nhân viên
+                ADM->>BE: Gửi danh sách điểm danh
+                BE->>DB: Lưu trạng thái ngày công vào sổ chấm công
+                DB-->>BE: Xác nhận đã lưu
+                BE-->>ADM: Báo cáo "Chấm công hoàn tất"
+                
+                Note over QL, DB: ...Vào đợt tổng kết cuối năm/tháng...
+                
+                QL->>ADM: Bấm yêu cầu tổng kết lương tháng
+                ADM->>BE: Yêu cầu tính toán lương
+                BE->>DB: Trích xuất tổng số ngày đi làm, chức vụ, tiền ứng trước
+                DB-->>BE: Cung cấp đầy đủ số liệu chuyên cần
+                BE->>BE: Hệ thống tính toán (Lương cơ bản * Ngày công + Phụ cấp)
+                BE->>DB: Cập nhật và lưu lại Bảng lương
+                BE-->>ADM: Trình bày danh sách phiếu lương
+                ADM-->>NV: Phát phiếu lương cho nhân viên kiểm tra
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 7 -->
+    <div class="diagram-card">
+        <h2>7. Quy trình Phân tích và Gợi ý món ăn kèm</h2>
+        <div class="desc">Hệ thống thông minh tự động phân tích hàng ngàn hóa đơn cũ, nhận diện các món khách hàng thường mua chung để tự động gợi ý cho khách hàng mới.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor KH as Khách Hàng
+                participant FE as Website
+                participant BE as Hệ thống (Máy chủ)
+                participant DB as Cơ sở dữ liệu
+                participant Py as Hệ thống Phân tích Dữ liệu
+
+                Note over BE, Py: Sinh tự động dựa trên hóa đơn cũ...
+                BE->>DB: Lấy dữ liệu hóa đơn giao dịch thời gian qua
+                DB-->>BE: Danh sách tất cả hóa đơn
+                BE->>Py: Chuyển dữ liệu để máy tính tự động tìm quy luật
+                Py->>Py: Tìm các món thường được mua chung với nhau
+                Py->>DB: Lưu lại quy luật (VD: Khách ăn Gà thường gọi thêm Nước ngọt)
+                
+                Note over KH, FE: Quá trình mua của khách hàng...
+                KH->>FE: Bấm vào xem món "Gà Rán"
+                FE->>BE: Yêu cầu tìm các món nên gợi ý kèm theo
+                BE->>DB: Tìm các quy luật liên quan tới Gà Rán
+                DB-->>BE: Báo cáo là: "Nên bán kèm Nước ngọt, Khoai tây chiên"
+                BE-->>FE: Chuyển danh sách món gợi ý
+                FE-->>KH: Hiển thị "Các món thường được mua cùng: Nước ngọt"
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 8 -->
+    <div class="diagram-card">
+        <h2>8. Quy trình Bảo mật Nhật ký (Kiểm toán Hệ thống)</h2>
+        <div class="desc">Các thao tác quan trọng (xoá, sửa giao dịch) đều yêu cầu quyền hạn và được hệ thống lưu lại lịch sử rõ ràng để Ban quản lý kiểm tra.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor NV as Nhân viên thu ngân
+                participant API as Hệ thống Bảo mật
+                participant Audit as Bộ phận Lưu vết
+                participant DB as Cơ sở dữ liệu
+                actor Admin as Giám đốc
+
+                NV->>API: Yêu cầu Hủy đơn hàng số #102
+                API->>API: Kiểm tra tài khoản và quyền hạn
+                alt Quyền không đủ
+                    API-->>NV: Báo lỗi "Không đủ thẩm quyền" (Cần báo quản lý)
+                else Xác thực thành công
+                    API->>DB: Cập nhật trạng thái hóa đơn thành 'Đã hủy'
+                    API->>Audit: Thông báo "Nhân viên X vừa hủy đơn #102"
+                    Audit->>DB: Lưu vào Sổ nhật ký hệ thống
+                    API-->>NV: Báo "Hủy đơn hàng thành công"
+                end
+                
+                Note over Admin, DB: Những lúc Giám đốc cần kiểm tra...
+                Admin->>Audit: Yêu cầu xem lại sổ nhật ký hệ thống
+                Audit->>DB: Trích xuất toàn bộ lịch sử thao tác
+                DB-->>Audit: Cung cấp dữ liệu
+                Audit-->>Admin: Hiển thị bảng chi tiết "Ai làm gì, vào lúc nào"
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 9 -->
+    <div class="diagram-card">
+        <h2>9. Quy trình Phân Ca Làm Việc (Quản lý Nhân sự)</h2>
+        <div class="desc">Quản lý cửa hàng phân bổ nhân viên vào các ca làm việc (Sáng, Chiều, Tối). Hệ thống sẽ tự động đối chiếu để tránh trùng lặp ca và thông báo lại cho nhân viên.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor QL as Quản lý cửa hàng
+                participant FE as Ứng dụng Quản lý
+                participant BE as Hệ thống (Máy chủ)
+                participant DB as Cơ sở dữ liệu
+                actor NV as Nhân viên
+
+                QL->>FE: Lập và phân bổ lịch làm việc tuần tới
+                FE->>BE: Gửi danh sách nhân viên và ca làm
+                activate BE
+                BE->>DB: Hệ thống tự động kiểm tra xem có ai bị trùng ca không
+                DB-->>BE: Xác nhận không bị trùng lặp lịch
+                BE->>DB: Lưu toàn bộ lịch làm việc vào sổ phân ca
+                DB-->>BE: Ghi nhận phân ca thành công
+                BE-->>FE: Thông báo "Lập lịch làm việc hoàn tất"
+                deactivate BE
+                
+                Note over NV, DB: Nhân viên khi mở app lên...
+                NV->>FE: Yêu cầu xem lịch làm việc cá nhân
+                FE->>BE: Gửi yêu cầu truy xuất
+                BE->>DB: Tìm kiếm lịch được giao cho nhân viên này
+                DB-->>BE: Trả về lịch làm việc
+                BE-->>FE: Chuyển dữ liệu ca làm
+                FE-->>NV: Hiển thị danh sách ca làm việc trong tuần
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 10 -->
+    <div class="diagram-card">
+        <h2>10. Quy trình Quản lý Hao hụt Nguyên liệu (Hủy món/Hư hỏng)</h2>
+        <div class="desc">Khi bếp phát hiện nguyên liệu bị hỏng hoặc hết hạn, phụ bếp lập báo cáo hao hụt. Máy chủ tính toán lại và xin xác nhận để trừ trực tiếp vào kho.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor Bep as Phụ Bếp / Bếp trưởng
+                participant Kitchen as Màn hình Bếp
+                participant BE as Hệ thống (Máy chủ)
+                participant DB as Cơ sở dữ liệu
+                actor QL as Quản lý
+
+                Bep->>Kitchen: Báo cáo nguyên liệu bị hỏng (Tên, Số lượng, Chụp ảnh)
+                Kitchen->>BE: Gửi báo cáo hao hụt lên máy chủ
+                activate BE
+                BE->>DB: Trích xuất số lượng nguyên liệu tồn thực tế
+                DB-->>BE: Xác nhận số lượng đang có
+                BE->>BE: Làm phép trừ, tính toán lại giá trị hao hụt
+                BE->>DB: Cập nhật lại kho và lưu vào "Sổ nhật ký hao hụt"
+                DB-->>BE: Báo cáo đã cập nhật xong
+                BE-->>Kitchen: Thông báo "Đã ghi nhận trừ kho hao hụt"
+                deactivate BE
+                
+                Note over QL, DB: Cuối ngày Quản lý kiểm tra...
+                QL->>BE: Mở danh sách nguyên liệu hỏng/hủy món
+                BE->>DB: Rút trích lịch sử hao hụt của ngày
+                DB-->>BE: Cung cấp đầy đủ danh sách
+                BE-->>QL: Hiển thị báo cáo thiệt hại hao hụt cho người quản lý
+        </div>
+    </div>
+
+    <!-- QUY TRÌNH 11 -->
+    <div class="diagram-card">
+        <h2>11. Quy trình Lập Phiếu Chi & Thống kê Doanh thu (Báo cáo Kế toán)</h2>
+        <div class="desc">Kế toán lập các khoản chi ngoài (tiền điện, nước, lương thưởng, chi phí phát sinh) và theo dõi biểu đồ thống kê lợi nhuận cuối kỳ.</div>
+        <div class="mermaid">
+            sequenceDiagram
+                autonumber
+                actor KT as Kế toán / Quản lý
+                participant FE as Trang Quản trị
+                participant BE as Hệ thống máy chủ
+                participant DB as Cơ sở dữ liệu
+
+                KT->>FE: Bấm Lập khoản chi mới (Số tiền, Mục đích: Điện, Nước...)
+                FE->>BE: Gửi thông tin khoản chi kế toán
+                activate BE
+                BE->>DB: Lưu khoản chi phí trực tiếp vào sổ quỹ
+                DB-->>BE: Cập nhật sổ quỹ xong
+                BE-->>FE: Thông báo "Lưu phiếu chi hoàn tất thành công"
+                deactivate BE
+                
+                Note over KT, FE: Khi xem báo cáo cuối năm hoặc cuối tháng...
+                KT->>FE: Yêu cầu xem Báo cáo doanh thu & Lợi nhuận
+                FE->>BE: Yêu cầu xuất biểu đồ thống kê
+                BE->>DB: Lấy "Tổng Thu" (đơn hàng bán) và "Tổng Chi" (nhập hàng, lương, điện, nước)
+                DB-->>BE: Cung cấp số liệu kế toán thô
+                BE->>BE: Máy chủ tính Lợi nhuận = Tổng thu - Tổng chi
+                BE-->>FE: Soạn các bảng số và vẽ đồ thị tròn/cột
+                FE-->>KT: Hiển thị biểu đồ báo cáo tài chính trực quan
+        </div>
+    </div>
+
+    <div style="text-align: center; color: #7f8c8d; font-size: 0.9rem; margin-top: 30px;">
+        Bản quyền thiết kế thuộc về: Hệ Thống Nhà Hàng Phương Nam (Niên khóa 2026)
+    </div>
+
+</body>
+</html>

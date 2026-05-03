@@ -1,0 +1,50 @@
+Draw a simple Use Case Diagram for Restaurant Management System
+
+ACTORS (stick figures on left):
+- KhachHang (Customer)
+- NhanVien (Staff)
+- QuanLy (Manager)
+- Admin
+
+---
+
+USE CASES (ovals in center):
+
+KhachHang can do:
+- DangKy (Register)
+- DangNhap (Login)
+- XemThucDon (View Menu)
+- DatBan (Make Reservation)
+- DatHangOnline (Order Online)
+- ThanhToan (Payment)
+- DanhGiaMonAn (Rate Dish)
+
+NhanVien can do:
+- DangNhap (Login)
+- XemDonHang (View Orders)
+- XacNhanDonHang (Confirm Order)
+- XacNhanDatBan (Confirm Reservation)
+- CapNhatTrangThai (Update Status)
+
+QuanLy can do:
+- DangNhap (Login)
+- QuanLyThucDon (Manage Menu)
+- QuanLyKho (Manage Inventory)
+- XemBaoCao (View Reports)
+- QuanLyNhanVien (Manage Staff)
+
+Admin can do:
+- DangNhap (Login)
+- PhanQuyen (Assign Roles)
+- QuanLyHeThong (System Management)
+- XemThongKe (View Statistics)
+
+---
+
+RULES:
+- Use straight lines to connect actors to use cases
+- Actors on the left side
+- Use cases in the center
+- Simple and clean layout
+- No <<include>> or <<extend>> relationships
+- System boundary box around all use cases with title "Hệ Thống Nhà Hàng"

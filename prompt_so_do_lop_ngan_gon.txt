@@ -1,0 +1,163 @@
+VẼ SƠ ĐỒ LỚP - HỆ THỐNG NHÀ HÀNG PHƯƠNG NAM
+================================================
+
+## QUY TẮC:
+- Chỉ dùng đường thẳng liền (Association) cho tất cả quan hệ
+- Màu nền: Xanh nhạt (#ADD8E6)
+- Hiển thị: Tên lớp | Thuộc tính | Phương thức
+
+---
+
+## CÁC LỚP:
+
+### NguoiDung
++MaNguoiDung: int
++HoTen: string
++Email: string
++MatKhau: string
++SoDienThoai: string
++VaiTro: string
+---
++DangNhap(): void
++DangXuat(): void
++CapNhatThongTin(): void
+
+### DanhMuc
++MaDanhMuc: int
++TenDanhMuc: string
++MoTa: string
+---
++ThemDanhMuc(): void
++SuaDanhMuc(): void
+
+### MonAn
++MaMonAn: int
++MaDanhMuc: int
++TenMonAn: string
++Gia: float
++HinhAnh: string
++TrangThai: boolean
+---
++ThemMonAn(): void
++SuaMonAn(): void
++XoaMonAn(): void
+
+### Ban
++MaBan: int
++TenBan: string
++SoChoNgoi: int
++TrangThai: string
+---
++CapNhatTrangThai(): void
+
+### DatBan
++MaDatBan: int
++MaNguoiDung: int
++MaBan: int
++ThoiGianDat: DateTime
++SoNguoi: int
++TrangThai: string
+---
++TaoDatBan(): void
++HuyDatBan(): void
+
+### DonHang
++MaDonHang: int
++MaNguoiDung: int
++TongTien: float
++TrangThai: string
++DiaChiGiaoHang: string
+---
++TaoDonHang(): void
++CapNhatTrangThai(): void
+
+### ChiTietDonHang
++MaChiTiet: int
++MaDonHang: int
++MaMonAn: int
++SoLuong: int
++DonGia: float
+---
++TinhThanhTien(): void
+
+### NguyenLieu
++MaNguyenLieu: int
++TenNguyenLieu: string
++DonVi: string
++SoLuongTon: float
+---
++CapNhatTonKho(): void
+
+### CongThuc
++MaCongThuc: int
++MaMonAn: int
++MaNguyenLieu: int
++SoLuongCan: float
+---
++ThemCongThuc(): void
+
+### NhaCungCap
++MaNCC: int
++TenNCC: string
++SoDienThoai: string
++DiaChi: string
+---
++ThemNCC(): void
+
+### PhieuNhap
++MaPhieuNhap: int
++MaNCC: int
++NgayNhap: DateTime
++TongTien: float
+---
++TaoPhieuNhap(): void
+
+### ChiTietPhieuNhap
++MaChiTiet: int
++MaPhieuNhap: int
++MaNguyenLieu: int
++SoLuong: float
++DonGia: float
+---
++TinhThanhTien(): void
+
+### ThanhToan
++MaThanhToan: int
++MaDonHang: int
++PhuongThuc: string
++SoTien: float
++TrangThai: string
+---
++XacNhanThanhToan(): void
+
+### DanhGia
++MaDanhGia: int
++MaNguoiDung: int
++MaMonAn: int
++DiemDanhGia: int
++BinhLuan: string
+---
++ThemDanhGia(): void
+
+---
+
+## QUAN HỆ (Đường thẳng liền):
+
+NguoiDung ────── DatBan (1 to *)
+Ban ────── DatBan (1 to *)
+NguoiDung ────── DonHang (1 to *)
+DonHang ────── ChiTietDonHang (1 to *)
+MonAn ────── ChiTietDonHang (1 to *)
+DanhMuc ────── MonAn (1 to *)
+MonAn ────── CongThuc (1 to *)
+NguyenLieu ────── CongThuc (1 to *)
+NhaCungCap ────── PhieuNhap (1 to *)
+PhieuNhap ────── ChiTietPhieuNhap (1 to *)
+NguyenLieu ────── ChiTietPhieuNhap (1 to *)
+DonHang ────── ThanhToan (1 to 0..1)
+NguoiDung ────── DanhGia (1 to *)
+MonAn ────── DanhGia (1 to *)
+
+---
+
+VẼ SƠ ĐỒ với 14 lớp và 14 quan hệ như trên.

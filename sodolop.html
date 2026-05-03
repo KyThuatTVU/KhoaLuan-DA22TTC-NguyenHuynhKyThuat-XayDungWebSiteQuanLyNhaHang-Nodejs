@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sơ đồ Lớp (Class Diagram) - Hệ thống Nhà Hàng</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#ffffff',
+                primaryBorderColor: '#2c3e50',
+                secondaryColor: '#f4f6f8',
+                tertiaryColor: '#e8f5e9',
+                fontFamily: 'Segoe UI',
+                fontSize: '14px'
+            }
+        });
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { color: #2c3e50; font-size: 2.2rem; margin-bottom: 10px; }
+        .header p { color: #7f8c8d; font-size: 1.1rem; }
+        .diagram-card { background: white; border-radius: 10px; padding: 30px; margin: 0 auto 40px; max-width: 1200px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
+        .diagram-card h2 { color: #e74c3c; border-bottom: 2px solid #f1f2f6; padding-bottom: 15px; margin-top: 0; }
+        .desc { background: #fdfbfb; padding: 15px; border-left: 4px solid #3498db; margin-bottom: 20px; color: #555; line-height: 1.6; }
+        .mermaid { display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>SƠ ĐỒ LỚP (CLASS DIAGRAM)</h1>
+        <p>Kiến trúc Thực thể (Entities) - Hệ thống Quản lý nhà hàng Phương Nam</p>
+    </div>
+
+    <!-- TỔNG QUAN HỆ THỐNG -->
+    <div class="diagram-card">
+        <h2>Sơ đồ cấu trúc Lớp Toàn Hệ Thống (Mô hình CSDL Thực tế)</h2>
+        <div class="desc">
+            Sơ đồ mô tả các thực thể (class) chính và mối quan hệ trực tiếp được trích xuất từ <strong>Database QuanLyNhaHangPhuongNam.sql</strong>.
+        </div>
+        <div class="mermaid">
+            classDiagram
+                %% 1. Nhóm Người Dùng & Nhân Sự
+                class NguoiDung {
+                    +int id
+                    +String ho_ten
+                    +String email
+                    +String mat_khau
+                    +String sdt
+                    +String dia_chi
+                    +String vai_tro
+                    +DateTime ngay_tao
+                }
+
+                class NhanVien {
+                    +int id
+                    +int user_id
+                    +int role_id
+                    +String ma_nv
+                    +String chuc_vu
+                    +float luong_co_ban
+                    +DateTime ngay_vao_lam
+                }
+
+                class BangLuong {
+                    +int id
+                    +int nhan_vien_id
+                    +int ca_lam_viec_id
+                    +float so_gio_lam
+                    +float tong_luong
+                    +DateTime thoi_gian_tinh
+                }
+
+                NguoiDung "1" <-- "1" NhanVien : Liên kết TK
+                NhanVien "1" -- "*" BangLuong : Nhận lương
+
+                %% 2. Nhóm Sản Phẩm & Bán Hàng
+                class DanhMuc {
+                    +int id
+                    +String ten_danh_muc
+                    +String mo_ta
+                }
+
+                class MonAn {
+                    +int id
+                    +int danh_muc_id
+                    +String ten_mon_an
+                    +float gia
+                    +String hinh_anh
+                    +boolean trang_thai
+                }
+
+                class Ban {
+                    +int id
+                    +String ten_ban
+                    +int so_cho_ngoi
+                    +String trang_thai
+                }
+
+                class DatBan {
+                    +int id
+                    +int nguoi_dung_id
+                    +int ban_id
+                    +DateTime thoi_gian_den
+                    +int so_nguoi
+                    +String trang_thai
+                }
+
+                DanhMuc "1" -- "*" MonAn : Phân loại
+                NguoiDung "1" -- "*" DatBan : Khách đặt
+                Ban "1" -- "*" DatBan : Gồm
+
+                %% 3. Đơn Hàng (Online) & Order (Tại Quán)
+                class DonHang {
+                    +int id
+                    +int nguoi_dung_id
+                    +float tong_tien
+                    +String trang_thai
+                    +String dia_chi_giao_hang
+                    +String sdt_nhan_hang
+                }
+
+                class ChiTietDonHang {
+                    +int id
+                    +int don_hang_id
+                    +int mon_an_id
+                    +int so_luong
+                    +float gia
+                }
+
+                class OrderNhaHang {
+                    +int id
+                    +int ban_id
+                    +int nhan_vien_id
+                    +float tong_tien
+                    +String trang_thai
+                }
+
+                class ChiTietOrderNhaHang {
+                    +int id
+                    +int order_id
+                    +int mon_an_id
+                    +int so_luong
+                    +float gia
+                }
+
+                NguoiDung "1" -- "*" DonHang : Mua Online
+                DonHang "1" *-- "*" ChiTietDonHang : Có
+                ChiTietDonHang "*" -- "1" MonAn : Sản phẩm
+
+                Ban "1" -- "*" OrderNhaHang : Mua Tại Quán
+                NhanVien "1" -- "*" OrderNhaHang : Phục vụ
+                OrderNhaHang "1" *-- "*" ChiTietOrderNhaHang : Chứa
+                ChiTietOrderNhaHang "*" -- "1" MonAn : Gọi món
+
+                %% 4. Nhóm Kho & Nhập Hàng
+                class NguyenLieu {
+                    +int id
+                    +String ten_nguyen_lieu
+                    +String don_vi
+                    +float so_luong_ton
+                }
+
+                class CongThuc {
+                    +int id
+                    +int mon_an_id
+                    +int nguyen_lieu_id
+                    +float so_luong_can
+                }
+
+                class NhaCungCap {
+                    +int id
+                    +String ten_ncc
+                    +String sdt
+                    +String dia_chi
+                }
+
+                class PhieuNhap {
+                    +int id
+                    +int nha_cung_cap_id
+                    +int nhan_vien_id
+                    +float tong_tien
+                    +DateTime ngay_nhap
+                }
+
+                class ChiTietPhieuNhap {
+                    +int id
+                    +int phieu_nhap_id
+                    +int nguyen_lieu_id
+                    +float so_luong
+                    +float don_gia
+                }
+
+                MonAn "1" -- "*" CongThuc : Định lượng
+                NguyenLieu "1" -- "*" CongThuc : Thành phần
+                NhaCungCap "1" -- "*" PhieuNhap : Cung cấp
+                PhieuNhap "1" *-- "*" ChiTietPhieuNhap : Gồm
+                ChiTietPhieuNhap "*" -- "1" NguyenLieu : Nhập
+        </div>
+    </div>
+
+    <div style="text-align: center; color: #7f8c8d; font-size: 0.9rem; margin-top: 30px;">
+        Bản quyền thiết kế thuộc về: Hệ Thống Nhà Hàng Phương Nam (Niên khóa 2026)
+    </div>
+
+</body>
+</html>

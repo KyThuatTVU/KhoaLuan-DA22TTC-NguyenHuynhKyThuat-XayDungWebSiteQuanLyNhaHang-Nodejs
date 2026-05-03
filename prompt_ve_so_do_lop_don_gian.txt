@@ -1,0 +1,397 @@
+PROMPT VẼ SƠ ĐỒ LỚP ĐỐN GIẢN - HỆ THỐNG NHÀ HÀNG PHƯƠNG NAM
+================================================================
+
+## YÊU CẦU VẼ SƠ ĐỒ:
+
+Vẽ sơ đồ lớp (Class Diagram) đơn giản cho hệ thống quản lý nhà hàng với các lớp và quan hệ sau:
+
+### QUY TẮC VẼ:
+1. **CHỈ SỬ DỤNG ĐƯỜNG THẲNG LIỀN (ASSOCIATION)** cho tất cả quan hệ
+2. Mỗi lớp có 3 phần: Tên lớp | Thuộc tính | Phương thức
+3. Thuộc tính: +TenThuocTinh: KieuDuLieu
+4. Phương thức: +TenPhuongThuc(): KieuTraVe
+5. Màu nền: Xanh nhạt (#ADD8E6)
+6. Multiplicity: 1, *, 0..1, 1..*
+
+---
+
+## DANH SÁCH CÁC LỚP:
+
+### 1. NguoiDung
+**Thuộc tính:**
+- +MaNguoiDung: int
+- +HoTen: string
+- +Email: string
+- +MatKhau: string
+- +SoDienThoai: string
+- +VaiTro: string
+
+**Phương thức:**
+- +DangNhap(): void
+- +DangXuat(): void
+- +CapNhatThongTin(): void
+
+---
+
+### 2. DanhMuc
+**Thuộc tính:**
+- +MaDanhMuc: int
+- +TenDanhMuc: string
+- +MoTa: string
+
+**Phương thức:**
+- +ThemDanhMuc(): void
+- +SuaDanhMuc(): void
+
+---
+
+### 3. MonAn
+**Thuộc tính:**
+- +MaMonAn: int
+- +MaDanhMuc: int
+- +TenMonAn: string
+- +Gia: float
+- +HinhAnh: string
+- +TrangThai: boolean
+
+**Phương thức:**
+- +ThemMonAn(): void
+- +SuaMonAn(): void
+- +XoaMonAn(): void
+
+---
+
+### 4. Ban
+**Thuộc tính:**
+- +MaBan: int
+- +TenBan: string
+- +SoChoNgoi: int
+- +TrangThai: string
+
+**Phương thức:**
+- +CapNhatTrangThai(): void
+
+---
+
+### 5. DatBan
+**Thuộc tính:**
+- +MaDatBan: int
+- +MaNguoiDung: int
+- +MaBan: int
+- +ThoiGianDat: DateTime
+- +SoNguoi: int
+- +TrangThai: string
+
+**Phương thức:**
+- +TaoDatBan(): void
+- +HuyDatBan(): void
+
+---
+
+### 6. DonHang
+**Thuộc tính:**
+- +MaDonHang: int
+- +MaNguoiDung: int
+- +TongTien: float
+- +TrangThai: string
+- +DiaChiGiaoHang: string
+
+**Phương thức:**
+- +TaoDonHang(): void
+- +CapNhatTrangThai(): void
+
+---
+
+### 7. ChiTietDonHang
+**Thuộc tính:**
+- +MaChiTiet: int
+- +MaDonHang: int
+- +MaMonAn: int
+- +SoLuong: int
+- +DonGia: float
+
+**Phương thức:**
+- +TinhThanhTien(): void
+
+---
+
+### 8. NguyenLieu
+**Thuộc tính:**
+- +MaNguyenLieu: int
+- +TenNguyenLieu: string
+- +DonVi: string
+- +SoLuongTon: float
+
+**Phương thức:**
+- +CapNhatTonKho(): void
+
+---
+
+### 9. CongThuc
+**Thuộc tính:**
+- +MaCongThuc: int
+- +MaMonAn: int
+- +MaNguyenLieu: int
+- +SoLuongCan: float
+
+**Phương thức:**
+- +ThemCongThuc(): void
+
+---
+
+### 10. NhaCungCap
+**Thuộc tính:**
+- +MaNCC: int
+- +TenNCC: string
+- +SoDienThoai: string
+- +DiaChi: string
+
+**Phương thức:**
+- +ThemNCC(): void
+
+---
+
+### 11. PhieuNhap
+**Thuộc tính:**
+- +MaPhieuNhap: int
+- +MaNCC: int
+- +NgayNhap: DateTime
+- +TongTien: float
+
+**Phương thức:**
+- +TaoPhieuNhap(): void
+
+---
+
+### 12. ChiTietPhieuNhap
+**Thuộc tính:**
+- +MaChiTiet: int
+- +MaPhieuNhap: int
+- +MaNguyenLieu: int
+- +SoLuong: float
+- +DonGia: float
+
+**Phương thức:**
+- +TinhThanhTien(): void
+
+---
+
+### 13. ThanhToan
+**Thuộc tính:**
+- +MaThanhToan: int
+- +MaDonHang: int
+- +PhuongThuc: string
+- +SoTien: float
+- +TrangThai: string
+
+**Phương thức:**
+- +XacNhanThanhToan(): void
+
+---
+
+### 14. DanhGia
+**Thuộc tính:**
+- +MaDanhGia: int
+- +MaNguoiDung: int
+- +MaMonAn: int
+- +DiemDanhGia: int
+- +BinhLuan: string
+
+**Phương thức:**
+- +ThemDanhGia(): void
+
+---
+
+## QUAN HỆ GIỮA CÁC LỚP:
+
+**Sử dụng đường thẳng liền (──────) cho tất cả quan hệ**
+
+### Quan hệ 1: NguoiDung và DatBan
+```
+NguoiDung ────── DatBan
+1              *
+```
+Mô tả: Một người dùng có thể đặt nhiều bàn
+
+---
+
+### Quan hệ 2: Ban và DatBan
+```
+Ban ────── DatBan
+1        *
+```
+Mô tả: Một bàn có nhiều lượt đặt
+
+---
+
+### Quan hệ 3: NguoiDung và DonHang
+```
+NguoiDung ────── DonHang
+1              *
+```
+Mô tả: Một người dùng có nhiều đơn hàng
+
+---
+
+### Quan hệ 4: DonHang và ChiTietDonHang
+```
+DonHang ────── ChiTietDonHang
+1            *
+```
+Mô tả: Một đơn hàng có nhiều chi tiết
+
+---
+
+### Quan hệ 5: MonAn và ChiTietDonHang
+```
+MonAn ────── ChiTietDonHang
+1          *
+```
+Mô tả: Một món ăn xuất hiện trong nhiều chi tiết đơn hàng
+
+---
+
+### Quan hệ 6: DanhMuc và MonAn
+```
+DanhMuc ────── MonAn
+1            *
+```
+Mô tả: Một danh mục chứa nhiều món ăn
+
+---
+
+### Quan hệ 7: MonAn và CongThuc
+```
+MonAn ────── CongThuc
+1          *
+```
+Mô tả: Một món ăn có nhiều công thức (nhiều nguyên liệu)
+
+---
+
+### Quan hệ 8: NguyenLieu và CongThuc
+```
+NguyenLieu ────── CongThuc
+1                *
+```
+Mô tả: Một nguyên liệu dùng trong nhiều công thức
+
+---
+
+### Quan hệ 9: NhaCungCap và PhieuNhap
+```
+NhaCungCap ────── PhieuNhap
+1                *
+```
+Mô tả: Một nhà cung cấp có nhiều phiếu nhập
+
+---
+
+### Quan hệ 10: PhieuNhap và ChiTietPhieuNhap
+```
+PhieuNhap ────── ChiTietPhieuNhap
+1              *
+```
+Mô tả: Một phiếu nhập có nhiều chi tiết
+
+---
+
+### Quan hệ 11: NguyenLieu và ChiTietPhieuNhap
+```
+NguyenLieu ────── ChiTietPhieuNhap
+1                *
+```
+Mô tả: Một nguyên liệu xuất hiện trong nhiều chi tiết phiếu nhập
+
+---
+
+### Quan hệ 12: DonHang và ThanhToan
+```
+DonHang ────── ThanhToan
+1            0..1
+```
+Mô tả: Một đơn hàng có không hoặc một thanh toán
+
+---
+
+### Quan hệ 13: NguoiDung và DanhGia
+```
+NguoiDung ────── DanhGia
+1              *
+```
+Mô tả: Một người dùng có nhiều đánh giá
+
+---
+
+### Quan hệ 14: MonAn và DanhGia
+```
+MonAn ────── DanhGia
+1          *
+```
+Mô tả: Một món ăn có nhiều đánh giá
+
+---
+
+## HƯỚNG DẪN VẼ CHI TIẾT:
+
+### 1. Định dạng lớp:
+- Vẽ hình chữ nhật chia 3 phần
+- Phần 1: Tên lớp (in đậm, căn giữa)
+- Phần 2: Danh sách thuộc tính (căn trái)
+- Phần 3: Danh sách phương thức (căn trái)
+
+### 2. Màu sắc:
+- Màu nền: Xanh nhạt (#ADD8E6 hoặc #87CEEB)
+- Viền: Đen hoặc xanh đậm
+- Chữ: Đen
+
+### 3. Vẽ quan hệ:
+- CHỈ dùng đường thẳng liền (──────)
+- Đặt multiplicity gần mỗi lớp (1, *, 0..1)
+- Có thể đặt tên quan hệ ở giữa đường (tùy chọn)
+
+### 4. Bố cục:
+- Sắp xếp các lớp theo logic nghiệp vụ
+- Lớp chính ở giữa, lớp phụ ở xung quanh
+- Tránh các đường kết nối chéo nhau
+- Căn chỉnh gọn gàng
+
+---
+
+## LƯU Ý QUAN TRỌNG:
+
+✅ **CHỈ SỬ DỤNG ASSOCIATION (đường thẳng liền)**
+❌ **KHÔNG sử dụng**: Inheritance (▷), Composition (◆), Aggregation (◇), Dependency (┄┄)
+
+✅ **Hiển thị đầy đủ thuộc tính và phương thức**
+✅ **Multiplicity rõ ràng**: 1, *, 0..1, 1..*
+✅ **Màu nền xanh nhạt cho tất cả lớp**
+✅ **Sắp xếp gọn gàng, dễ đọc**
+
+---
+
+## TÓM TẮT:
+
+Sơ đồ lớp gồm **14 lớp** và **14 quan hệ** cho hệ thống quản lý nhà hàng Phương Nam:
+
+**Các lớp chính:**
+1. NguoiDung - Quản lý người dùng
+2. DanhMuc - Phân loại món ăn
+3. MonAn - Thông tin món ăn
+4. Ban - Quản lý bàn
+5. DatBan - Đặt bàn
+6. DonHang - Đơn hàng online
+7. ChiTietDonHang - Chi tiết đơn hàng
+8. NguyenLieu - Nguyên liệu
+9. CongThuc - Công thức món ăn
+10. NhaCungCap - Nhà cung cấp
+11. PhieuNhap - Phiếu nhập kho
+12. ChiTietPhieuNhap - Chi tiết phiếu nhập
+13. ThanhToan - Thanh toán
+14. DanhGia - Đánh giá món ăn
+
+**Tất cả quan hệ đều là ASSOCIATION (đường thẳng liền) với multiplicity rõ ràng.**
+
+---
+
+📝 Vui lòng vẽ sơ đồ lớp theo đúng hướng dẫn trên.

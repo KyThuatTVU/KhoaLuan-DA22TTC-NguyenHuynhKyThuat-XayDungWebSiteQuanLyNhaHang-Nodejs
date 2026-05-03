@@ -192,7 +192,7 @@ function renderMenuProducts() {
         }
         
         return `
-        <div class="dish-card bg-white rounded-2xl overflow-hidden shadow-md">
+        <div class="dish-card flex flex-col bg-white rounded-2xl overflow-hidden shadow-md h-full">
             <!-- Image Container -->
             <a href="chitietmonan.html?id=${product.ma_mon}" class="block">
                 <div class="dish-image-container">
@@ -227,7 +227,7 @@ function renderMenuProducts() {
             </a>
             
             <!-- Content -->
-            <div class="p-5">
+            <div class="p-5 flex flex-col flex-1">
                 <!-- Title -->
                 <a href="chitietmonan.html?id=${product.ma_mon}" class="block">
                     <h3 class="font-bold text-lg mb-2 text-gray-800 line-clamp-1 hover:text-orange-600 transition cursor-pointer">
@@ -248,21 +248,34 @@ function renderMenuProducts() {
                     <span class="text-gray-500 text-sm ml-2 font-medium">(${Number(product.total_reviews) || 0})</span>
                 </div>
                 
+                <!-- Spacer to push Price & Action to bottom -->
+                <div class="mt-auto"></div>
+                
                 <!-- Price & Action -->
-                <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                <div class="flex items-center justify-between pt-3 border-t border-gray-100 gap-2">
                     <div class="flex flex-col">
-                        <span class="price-tag text-2xl font-bold">
+                        <span class="price-tag text-lg sm:text-xl font-bold text-orange-600">
                             ${formatPrice(parseFloat(product.gia_tien))}
                         </span>
-                        <span class="text-xs text-gray-400 mt-0.5">
+                        <span class="text-[10px] text-gray-400 mt-0.5">
                             <i class="fas fa-shipping-fast mr-1"></i>Miễn phí ship
                         </span>
                     </div>
-                    <button onclick="addToCart(${product.ma_mon})" 
-                            ${product.trang_thai === 0 || product.so_luong_ton === 0 ? 'disabled' : ''}
-                            class="add-to-cart-btn bg-gradient-to-r from-orange-500 to-red-500 text-white w-12 h-12 rounded-full hover:from-orange-600 hover:to-red-600 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center">
-                        <i class="fas fa-shopping-cart text-lg"></i>
-                    </button>
+                    <div class="flex items-center space-x-1 sm:space-x-2 shrink-0">
+                        <!-- Mua ngay (Primary Call-to-action) -->
+                        <button onclick="addToCart(${product.ma_mon}); setTimeout(() => window.location.href='gio-hang.html', 300)" 
+                                ${product.trang_thai === 0 || product.so_luong_ton === 0 ? 'disabled' : ''}
+                                class="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:from-orange-600 hover:to-red-600 transition-all shadow-sm active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed text-xs sm:text-sm">
+                            Mua ngay
+                        </button>
+                        
+                        <!-- Thêm giỏ hàng (Secondary) -->
+                        <button onclick="addToCart(${product.ma_mon})" 
+                                ${product.trang_thai === 0 || product.so_luong_ton === 0 ? 'disabled' : ''}
+                                class="bg-orange-50 text-orange-600 border border-orange-200 w-8 h-8 sm:w-9 sm:h-9 rounded-lg hover:bg-orange-100 hover:text-orange-700 transition-colors flex flex-shrink-0 items-center justify-center active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-cart-plus text-xs sm:text-sm"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -721,9 +734,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchCategories();
     fetchMenuProducts();
     setupPriceFilters();
-    setupSortButtons();
+    // setupSortButtons();
     setupApplyFilterButton();
     setupSearch();
     setupMobileFilter();
-    setupMobileSort();
+    // setupMobileSort();
 });

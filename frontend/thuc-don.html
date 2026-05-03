@@ -433,50 +433,11 @@
                 <!-- Products Grid -->
                 <div class="lg:w-3/4">
                     <!-- Sort Bar -->
-                    <div class="bg-white rounded-xl p-4 mb-6 shadow-sm">
-                        <!-- Desktop Sort -->
-                        <div class="hidden md:flex flex-wrap items-center justify-between gap-4">
-                            <div class="flex items-center space-x-4">
-                                <span class="text-gray-700">Sắp xếp:</span>
-                                <button
-                                    class="px-4 py-2 rounded-lg border hover:border-orange-600 hover:text-orange-600 transition"
-                                    data-sort="popular">
-                                    Phổ biến
-                                </button>
-                                <button
-                                    class="px-4 py-2 rounded-lg border hover:border-orange-600 hover:text-orange-600 transition"
-                                    data-sort="newest">
-                                    Mới nhất
-                                </button>
-                                <button
-                                    class="px-4 py-2 rounded-lg border hover:border-orange-600 hover:text-orange-600 transition"
-                                    data-sort="price-asc">
-                                    Giá tăng
-                                </button>
-                                <button
-                                    class="px-4 py-2 rounded-lg border hover:border-orange-600 hover:text-orange-600 transition"
-                                    data-sort="price-desc">
-                                    Giá giảm
-                                </button>
-                            </div>
-                            <span class="text-gray-600">Tìm thấy <strong id="product-count">0</strong> món ăn</span>
-                        </div>
-
-                        <!-- Mobile Sort -->
-                        <div class="md:hidden">
-                            <div class="flex items-center justify-between mb-3">
-                                <span class="text-gray-700 font-medium">Sắp xếp theo:</span>
-                                <span class="text-gray-600 text-sm">Tìm thấy <strong
-                                        id="product-count-mobile">0</strong> món</span>
-                            </div>
-                            <select id="mobile-sort"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500">
-                                <option value="default">Mặc định</option>
-                                <option value="popular">Phổ biến nhất</option>
-                                <option value="newest">Mới nhất</option>
-                                <option value="price-asc">Giá: Thấp đến cao</option>
-                                <option value="price-desc">Giá: Cao đến thấp</option>
-                            </select>
+                    <div class="bg-white rounded-xl p-4 mb-6 shadow-sm flex items-center justify-between">
+                        <h2 class="text-lg font-semibold text-gray-800">Danh sách món ăn</h2>
+                        <span class="text-gray-600">Tìm thấy <strong id="product-count" class="text-orange-600">0</strong> món ăn</span>
+                        <div class="hidden">
+                            <span id="product-count-mobile"></span>
                         </div>
                     </div>
 
