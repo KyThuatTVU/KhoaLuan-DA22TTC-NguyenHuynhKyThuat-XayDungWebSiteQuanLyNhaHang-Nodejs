@@ -19,7 +19,12 @@ router.get('/', async (req, res) => {
       SELECT 
         m.*,
         d.ten_danh_muc,
-        COALESCE(m.gia_khuyen_mai, m.gia_tien) as gia_hien_tai
+        COALESCE(m.gia_khuyen_mai, m.gia_tien) as gia_hien_tai,
+        (
+            SELECT GROUP_CONCAT(id_thuoc_tinh)
+            FROM mon_an_khau_vi
+            WHERE ma_mon = m.ma_mon
+        ) as khau_vi
       FROM mon_an m
       LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
       WHERE m.trang_thai = 1
@@ -104,7 +109,12 @@ router.get('/:id', async (req, res) => {
       `SELECT 
         m.*,
         d.ten_danh_muc,
-        COALESCE(m.gia_khuyen_mai, m.gia_tien) as gia_hien_tai
+        COALESCE(m.gia_khuyen_mai, m.gia_tien) as gia_hien_tai,
+        (
+            SELECT GROUP_CONCAT(id_thuoc_tinh)
+            FROM mon_an_khau_vi
+            WHERE ma_mon = m.ma_mon
+        ) as khau_vi
       FROM mon_an m
       LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
       WHERE m.ma_mon = ? AND m.trang_thai = 1`,

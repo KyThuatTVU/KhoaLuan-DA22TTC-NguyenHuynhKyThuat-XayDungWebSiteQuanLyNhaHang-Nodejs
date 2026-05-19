@@ -90,6 +90,13 @@
                             <option value="het_hang">Hết hàng</option>
                         </select>
                     </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Khẩu vị đặc trưng</label>
+                        <div id="khau_vi_container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <!-- JS tự đổ danh sách checkboxes khẩu vị -->
+                            <div class="text-slate-400 text-sm italic col-span-full">Đang tải danh sách khẩu vị...</div>
+                        </div>
+                    </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-2">Giá (VNĐ) *</label>
                         <input type="number" id="gia" required min="0" step="1000" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500" oninput="showPriceInWords(this.value)">
@@ -133,6 +140,7 @@
         // API_URL đã được khai báo trong admin-layout.js
         let products = [];
         let categories = [];
+        let flavors = [];
 
         // Chuyển số thành chữ tiếng Việt
         function numberToVietnameseWords(num) {
@@ -208,6 +216,28 @@
                     });
                 });
             } catch (error) { console.error('Error loading categories:', error); }
+        }
+
+        async function loadFlavors() {
+            try {
+                const response = await fetch(`${API_URL}/menu/flavors`);
+                const data = await response.json();
+                flavors = data.data || [];
+                const container = document.getElementById('khau_vi_container');
+                if (flavors.length === 0) {
+                    container.innerHTML = '<div class="text-sm text-slate-500 italic text-center w-full">Chưa có dữ liệu khẩu vị</div>';
+                    return;
+                }
+                container.innerHTML = flavors.map(f => `
+                    <label class="flex items-center space-x-2 cursor-pointer p-2 hover:bg-white rounded-lg transition border border-transparent hover:border-slate-200">
+                        <input type="checkbox" name="khau_vi_items" value="${f.id}" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <span class="text-sm text-slate-700">${f.ten_thuoc_tinh}</span>
+                    </label>
+                `).join('');
+            } catch (error) { 
+                console.error('Error loading flavors:', error);
+                document.getElementById('khau_vi_container').innerHTML = '<div class="text-sm text-red-500">Lỗi tải dữ liệu khẩu vị</div>';
+            }
         }
 
         async function loadProducts() {
@@ -303,6 +333,7 @@
         function openAddModal(isAutoOpen = false) { 
             document.getElementById('modal-title').textContent = 'Thêm món mới'; 
             document.getElementById('product-form').reset(); 
+            document.querySelectorAll('input[name="khau_vi_items"]').forEach(cb => cb.checked = false);
             if (window.productDraftManager) {
                 window.productDraftManager.setContext('new');
                 if (isAutoOpen && window.productDraftManager.hasDraft()) {
@@ -356,6 +387,17 @@
             checkStockWarning(document.getElementById('so_luong_ton')); // Hiển thị cảnh báo số lượng
             document.getElementById('mo_ta').value = product.mo_ta_chi_tiet || product.mo_ta || '';
             document.getElementById('trang_thai').value = product.trang_thai == 1 ? 'con_hang' : 'het_hang';
+            
+            // Xử lý khẩu vị
+            document.querySelectorAll('input[name="khau_vi_items"]').forEach(cb => cb.checked = false);
+            if (product.khau_vi) {
+                const khauViArr = product.khau_vi.toString().split(',');
+                khauViArr.forEach(val => {
+                    const cb = document.querySelector(`input[name="khau_vi_items"][value="${val}"]`);
+                    if (cb) cb.checked = true;
+                });
+            }
+
             document.getElementById('product-modal').classList.remove('hidden');
 
             // Lưu trạng thái đang mở form Sửa
@@ -407,6 +449,15 @@
             formData.append('so_luong_ton', stockValue);
             formData.append('mo_ta_chi_tiet', document.getElementById('mo_ta').value);
             formData.append('trang_thai', document.getElementById('trang_thai').value === 'con_hang' ? 1 : 0);
+            
+            // Xử lý khẩu vị
+            const checkedFlavors = Array.from(document.querySelectorAll('input[name="khau_vi_items"]:checked')).map(cb => cb.value);
+            if (checkedFlavors.length > 0) {
+                formData.append('khau_vi', checkedFlavors.join(','));
+            } else {
+                formData.append('khau_vi', '');
+            }
+
             const fileInput = document.getElementById('anh_dai_dien');
             if (fileInput.files[0]) formData.append('anh_mon', fileInput.files[0]);
             try {
@@ -562,8 +613,16 @@
             }
         }
 
-        loadCategories();
-        loadProducts();
+        // Khởi tạo trang đồng bộ để tránh race-condition khi tự động khôi phục modal
+        async function initPage() {
+            try {
+                await Promise.all([loadCategories(), loadFlavors()]);
+                await loadProducts();
+            } catch (err) {
+                console.error('Error initializing products page:', err);
+            }
+        }
+        initPage();
     </script>
 </body>
 </html>

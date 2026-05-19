@@ -343,34 +343,35 @@ async function getSQLCollaborativeRecommendations(userId, limit = 5) {
 
 /**
  * Gợi ý món dựa trên nội dung (danh mục, giá, đặc điểm)
- * CẢI TIẾN: Ưu tiên sở thích từ bảng so_thich_nguoi_dung
+ * CẢI TIẾN: Ưu tiên sở thích khẩu vị từ bảng so_thich_khau_vi_nguoi_dung
  */
-async function getContentBasedRecommendations(userId, limit = 5) {
+async function getContentBasedRecommendations(userId, limit = 5, preferredFlavorIds = null) {
     try {
-        // 1. Lấy sở thích danh mục từ bảng so_thich_nguoi_dung (ưu tiên cao nhất)
-        const [explicitPrefs] = await db.query(
-            `SELECT ma_danh_muc FROM so_thich_nguoi_dung WHERE ma_nguoi_dung = ?`,
-            [userId]
-        );
+        let favoriteFlavors = preferredFlavorIds;
         
-        let favoriteCategories = explicitPrefs.map(p => p.ma_danh_muc);
+        if (!favoriteFlavors || favoriteFlavors.length === 0) {
+            // 1. Lấy sở thích khẩu vị từ bảng so_thich_khau_vi_nguoi_dung (ưu tiên cao nhất)
+            const [explicitPrefs] = await db.query(
+                `SELECT id_thuoc_tinh FROM so_thich_khau_vi_nguoi_dung WHERE ma_nguoi_dung = ?`,
+                [userId]
+            );
+            favoriteFlavors = explicitPrefs.map(p => p.id_thuoc_tinh);
+        }
         
         // 2. Nếu không có sở thích rõ ràng, phân tích từ lịch sử mua hàng
-        if (favoriteCategories.length === 0) {
+        if (favoriteFlavors.length === 0) {
+            // Lấy các khẩu vị từ món đã mua nhiều nhất
             const [userPreferences] = await db.query(
-                `SELECT m.ma_danh_muc, AVG(m.gia_tien) as avg_price, 
-                        COUNT(*) as purchase_count
+                `SELECT mk.id_thuoc_tinh, COUNT(*) as purchase_count
                  FROM chi_tiet_don_hang ct
                  JOIN don_hang dh ON ct.ma_don_hang = dh.ma_don_hang
-                 JOIN mon_an m ON ct.ma_mon = m.ma_mon
+                 JOIN mon_an_khau_vi mk ON ct.ma_mon = mk.ma_mon
                  WHERE dh.ma_nguoi_dung = ?
-                 GROUP BY m.ma_danh_muc
+                 GROUP BY mk.id_thuoc_tinh
                  ORDER BY purchase_count DESC`,
                 [userId]
             );
-            
-            if (userPreferences.length === 0) return [];
-            favoriteCategories = userPreferences.slice(0, 3).map(p => p.ma_danh_muc);
+            favoriteFlavors = userPreferences.slice(0, 3).map(p => p.id_thuoc_tinh);
         }
         
         // 3. Lấy giá trung bình người dùng hay mua
@@ -384,7 +385,7 @@ async function getContentBasedRecommendations(userId, limit = 5) {
         );
         const avgPrice = priceStats[0]?.avg_price || 150000; // Default 150k
         
-        // 4. Lấy các món user chưa mua trong danh mục yêu thích
+        // 4. Lấy các món user chưa mua
         const [userOrders] = await db.query(
             `SELECT DISTINCT ct.ma_mon 
              FROM chi_tiet_don_hang ct
@@ -394,41 +395,67 @@ async function getContentBasedRecommendations(userId, limit = 5) {
         );
         const userDishes = userOrders.map(o => o.ma_mon);
         
-        let query = `
-            SELECT m.*, d.ten_danh_muc, AVG(dg.so_sao) as avg_rating,
-                   COUNT(dg.ma_danh_gia) as review_count
-            FROM mon_an m
-            LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
-            LEFT JOIN danh_gia_san_pham dg ON m.ma_mon = dg.ma_mon AND dg.trang_thai = 'approved'
-            WHERE m.trang_thai = 1 AND m.ma_danh_muc IN (?)
-        `;
-        const params = [favoriteCategories];
-        
-        if (userDishes.length > 0) {
-            query += ` AND m.ma_mon NOT IN (?)`;
-            params.push(userDishes);
+        let recommendations = [];
+        if (favoriteFlavors.length > 0) {
+            let query = `
+                SELECT m.*, d.ten_danh_muc, AVG(dg.so_sao) as avg_rating,
+                       COUNT(dg.ma_danh_gia) as review_count,
+                       GROUP_CONCAT(DISTINCT f.ten_thuoc_tinh SEPARATOR ', ') as flavor_names
+                FROM mon_an m
+                LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
+                JOIN mon_an_khau_vi mk ON m.ma_mon = mk.ma_mon
+                LEFT JOIN thuoc_tinh_khau_vi f ON mk.id_thuoc_tinh = f.id
+                LEFT JOIN danh_gia_san_pham dg ON m.ma_mon = dg.ma_mon AND dg.trang_thai = 'approved'
+                WHERE m.trang_thai = 1 AND mk.id_thuoc_tinh IN (?)
+            `;
+            const params = [favoriteFlavors];
+            
+            if (userDishes.length > 0) {
+                query += ` AND m.ma_mon NOT IN (?)`;
+                params.push(userDishes);
+            }
+            
+            query += ` GROUP BY m.ma_mon 
+                       ORDER BY ABS(m.gia_tien - ?) ASC, avg_rating DESC 
+                       LIMIT ?`;
+            params.push(avgPrice, limit * 2);
+            
+            const [res] = await db.query(query, params);
+            recommendations = res;
         }
         
-        // Ưu tiên món có giá gần với mức giá trung bình user hay mua
-        query += ` GROUP BY m.ma_mon 
-                   ORDER BY ABS(m.gia_tien - ?) ASC, avg_rating DESC 
-                   LIMIT ?`;
-        params.push(avgPrice, limit * 2); // Lấy nhiều hơn để có thể filter
+        // Nếu không đủ món, lấy thêm món chung
+        if (recommendations.length < limit) {
+            const excludedIds = [...userDishes, ...recommendations.map(r => r.ma_mon)];
+            let query = `
+                SELECT m.*, d.ten_danh_muc, AVG(dg.so_sao) as avg_rating
+                FROM mon_an m
+                LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
+                LEFT JOIN danh_gia_san_pham dg ON m.ma_mon = dg.ma_mon AND dg.trang_thai = 'approved'
+                WHERE m.trang_thai = 1
+            `;
+            const params = [];
+            if (excludedIds.length > 0) {
+                query += ` AND m.ma_mon NOT IN (?)`;
+                params.push(excludedIds);
+            }
+            query += ` GROUP BY m.ma_mon ORDER BY avg_rating DESC LIMIT ?`;
+            params.push(limit - recommendations.length);
+            
+            const [extra] = await db.query(query, params);
+            recommendations.push(...extra);
+        }
         
-        const [recommendations] = await db.query(query, params);
-        
-        // Lấy tên danh mục để hiển thị lý do
-        const [categoryNames] = await db.query(
-            `SELECT ma_danh_muc, ten_danh_muc FROM danh_muc WHERE ma_danh_muc IN (?)`,
-            [favoriteCategories]
-        );
-        const categoryMap = new Map(categoryNames.map(c => [c.ma_danh_muc, c.ten_danh_muc]));
-        
-        return recommendations.slice(0, limit).map(r => ({
-            ...r,
-            recommendation_type: 'content_based',
-            reason: `Phù hợp với sở thích của bạn (${categoryMap.get(r.ma_danh_muc) || 'Món yêu thích'})`
-        }));
+        return recommendations.slice(0, limit).map(r => {
+            const reason = r.flavor_names 
+                ? `Hợp khẩu vị của bạn (${r.flavor_names})` 
+                : (r.ten_danh_muc ? `Món ngon từ danh mục ${r.ten_danh_muc}` : 'Đề xuất cho bạn');
+            return {
+                ...r,
+                recommendation_type: 'content_based',
+                reason: reason
+            };
+        });
     } catch (error) {
         console.error('Error getting content-based recommendations:', error.message);
         return [];
@@ -772,17 +799,36 @@ router.get('/', async (req, res) => {
         let recommendations = [];
         
         if (userId) {
-            // Lấy sở thích danh mục rõ ràng của người dùng (từ khảo sát/cold start)
+            // 1. Lấy sở thích khẩu vị rõ ràng của người dùng (từ khảo sát/cold start)
             const [explicitPrefs] = await db.query(
-                `SELECT ma_danh_muc FROM so_thich_nguoi_dung WHERE ma_nguoi_dung = ?`,
+                `SELECT id_thuoc_tinh FROM so_thich_khau_vi_nguoi_dung WHERE ma_nguoi_dung = ?`,
                 [userId]
             );
-            const preferredCatIds = explicitPrefs.map(p => p.ma_danh_muc);
+            const explicitFlavorIds = explicitPrefs.map(p => p.id_thuoc_tinh);
+
+            // 2. Thống kê hành vi click chuột từ DB (học ngầm sở thích dài hạn - Shopee style)
+            let implicitFlavorIds = [];
+            try {
+                const [implicitPrefs] = await db.query(`
+                    SELECT mk.id_thuoc_tinh, COUNT(h.id) as click_count
+                    FROM hanh_vi_nguoi_dung h
+                    JOIN mon_an_khau_vi mk ON h.ma_mon = mk.ma_mon
+                    WHERE h.ma_nguoi_dung = ? AND h.hanh_vi IN ('click', 'view')
+                    GROUP BY mk.id_thuoc_tinh
+                    HAVING click_count >= 5
+                `, [userId]);
+                implicitFlavorIds = implicitPrefs.map(p => p.id_thuoc_tinh);
+            } catch (dbErr) {
+                console.error('Error learning implicit flavor preferences:', dbErr.message);
+            }
+
+            // Gộp cả 2 nguồn sở thích (Khao sát + Học ngầm từ click DB)
+            const preferredFlavorIds = [...new Set([...explicitFlavorIds, ...implicitFlavorIds])];
+            console.log(`🎯 [ML Preference Profile] User ${userId}: Explicit=[${explicitFlavorIds.join(',')}], Implicit Clicks=[${implicitFlavorIds.join(',')}]`);
 
             // User đã đăng nhập - sử dụng ML recommendations
-            // Ưu tiên: Content-based (sở thích rõ ràng) > Chat-based > Collaborative
             const [contentBased, chatBased, collaborative] = await Promise.all([
-                getContentBasedRecommendations(userId, Math.ceil(limit * 0.6)), // 60% từ sở thích
+                getContentBasedRecommendations(userId, Math.ceil(limit * 0.6), preferredFlavorIds), // 60% từ sở thích (Khảo sát + Clicks)
                 getChatBasedRecommendations(userId, Math.ceil(limit * 0.2)),    // 20% từ chat
                 getCollaborativeRecommendations(userId, Math.ceil(limit * 0.2)) // 20% từ collaborative
             ]);
@@ -799,16 +845,88 @@ router.get('/', async (req, res) => {
             collaborative.forEach((item, index) => {
                 item.score = 79 - index;
             });
+
+            // ================================================================
+            // XỬ LÝ BOOST KHẨU VỊ THEO PHIÊN TRUY CẬP (SESSION CLICK DETECT >= 5)
+            // ================================================================
+            let sessionBoostFlavors = [];
+            if (req.query.session_boost_flavors) {
+                sessionBoostFlavors = req.query.session_boost_flavors.split(',')
+                    .map(id => parseInt(id.trim()))
+                    .filter(id => !isNaN(id));
+            }
+
+            let directBoostedDishes = [];
+            if (sessionBoostFlavors.length > 0) {
+                try {
+                    // 1. Lấy tất cả món ăn tương ứng với các khẩu vị được xem nhiều
+                    const [boostedDishes] = await db.query(
+                        `SELECT DISTINCT ma_mon FROM mon_an_khau_vi WHERE id_thuoc_tinh IN (?)`,
+                        [sessionBoostFlavors]
+                    );
+                    const boostedDishSet = new Set(boostedDishes.map(d => d.ma_mon));
+                    
+                    contentBased.forEach(item => {
+                        if (boostedDishSet.has(item.ma_mon)) {
+                            item.score = (item.score || 0) + 200;
+                            item.reason = `🔥 Phù hợp với món ăn bạn đang quan tâm lúc này`;
+                        }
+                    });
+                    chatBased.forEach(item => {
+                        if (boostedDishSet.has(item.ma_mon)) {
+                            item.score = (item.score || 0) + 200;
+                            item.reason = `🔥 Phù hợp với món ăn bạn đang quan tâm lúc này`;
+                        }
+                    });
+                    collaborative.forEach(item => {
+                        if (boostedDishSet.has(item.ma_mon)) {
+                            item.score = (item.score || 0) + 200;
+                            item.reason = `🔥 Phù hợp với món ăn bạn đang quan tâm lúc này`;
+                        }
+                    });
+
+                    // 2. Truy vấn trực tiếp các món tiêu biểu của nhóm khẩu vị này để đưa trực tiếp vào
+                    const [directDishes] = await db.query(`
+                        SELECT m.*, d.ten_danh_muc, COALESCE(AVG(dg.so_sao), 5) as avg_rating,
+                               GROUP_CONCAT(DISTINCT f.ten_thuoc_tinh SEPARATOR ', ') as flavor_names
+                        FROM mon_an m
+                        LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
+                        JOIN mon_an_khau_vi mk ON m.ma_mon = mk.ma_mon
+                        LEFT JOIN thuoc_tinh_khau_vi f ON mk.id_thuoc_tinh = f.id
+                        LEFT JOIN danh_gia_san_pham dg ON m.ma_mon = dg.ma_mon AND dg.trang_thai = 'approved'
+                        WHERE m.trang_thai = 1 AND mk.id_thuoc_tinh IN (?)
+                        GROUP BY m.ma_mon
+                        ORDER BY avg_rating DESC
+                        LIMIT 10
+                    `, [sessionBoostFlavors]);
+
+                    directDishes.forEach((item, index) => {
+                        item.score = 300 - index; // Điểm tuyệt đối cao nhất
+                        item.recommendation_type = 'content_based';
+                        item.reason = `🔥 Phù hợp với món ăn bạn đang quan tâm lúc này`;
+                    });
+                    directBoostedDishes = directDishes;
+                } catch (boostErr) {
+                    console.error('Error applying session flavor boost:', boostErr.message);
+                }
+            }
             
-            // Nếu người dùng có sở thích danh mục rõ ràng, chỉ lọc content-based và chat-based theo danh mục
-            // KHÔNG lọc collaborative filtering - vì đây là gợi ý từ hành vi người dùng tương tự, có giá trị riêng
-            if (preferredCatIds.length > 0) {
-                const filteredContent = contentBased.filter(r => preferredCatIds.includes(r.ma_danh_muc));
-                const filteredChat = chatBased.filter(r => preferredCatIds.includes(r.ma_danh_muc));
-                // Giữ nguyên collaborative - không lọc theo danh mục
-                recommendations = [...filteredContent, ...filteredChat, ...collaborative];
+            // Lọc các đề xuất theo khẩu vị (kết hợp Khảo sát + Session Boost)
+            const allowedFilterFlavors = [...new Set([...preferredFlavorIds, ...sessionBoostFlavors])];
+            if (allowedFilterFlavors.length > 0) {
+                // Lấy các món ăn có chứa khẩu vị được chọn
+                const [flavorDishes] = await db.query(
+                    `SELECT DISTINCT ma_mon FROM mon_an_khau_vi WHERE id_thuoc_tinh IN (?)`,
+                    [allowedFilterFlavors]
+                );
+                const matchingDishIds = new Set(flavorDishes.map(fd => fd.ma_mon));
+                
+                const filteredContent = contentBased.filter(r => matchingDishIds.has(r.ma_mon));
+                const filteredChat = chatBased.filter(r => matchingDishIds.has(r.ma_mon));
+                
+                recommendations = [...directBoostedDishes, ...filteredContent, ...filteredChat, ...collaborative];
             } else {
-                recommendations = [...contentBased, ...chatBased, ...collaborative];
+                recommendations = [...directBoostedDishes, ...contentBased, ...chatBased, ...collaborative];
             }
             
             // Loại trùng lặp (giữ item có score cao nhất)
@@ -821,29 +939,32 @@ router.get('/', async (req, res) => {
             
             console.log(`✨ [Recommendation] User ${userId}: ${contentBased.length} content-based, ${chatBased.length} chat-based, ${collaborative.length} collaborative. Total (deduped): ${recommendations.length} recommendations.`);
             
-            // Nếu không đủ, bổ sung các món khác từ danh mục ưa thích của người dùng
-            if (recommendations.length < limit && preferredCatIds.length > 0) {
+            // Nếu không đủ, bổ sung các món khác phù hợp khẩu vị của người dùng
+            if (recommendations.length < limit && preferredFlavorIds.length > 0) {
                 const excludedIds = recommendations.map(r => r.ma_mon);
                 const query = `
-                    SELECT m.*, d.ten_danh_muc, AVG(dg.so_sao) as avg_rating
+                    SELECT m.*, d.ten_danh_muc, AVG(dg.so_sao) as avg_rating,
+                           GROUP_CONCAT(DISTINCT f.ten_thuoc_tinh SEPARATOR ', ') as flavor_names
                     FROM mon_an m
                     LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
+                    JOIN mon_an_khau_vi mk ON m.ma_mon = mk.ma_mon
+                    LEFT JOIN thuoc_tinh_khau_vi f ON mk.id_thuoc_tinh = f.id
                     LEFT JOIN danh_gia_san_pham dg ON m.ma_mon = dg.ma_mon AND dg.trang_thai = 'approved'
-                    WHERE m.trang_thai = 1 AND m.ma_danh_muc IN (?) ${excludedIds.length > 0 ? 'AND m.ma_mon NOT IN (?)' : ''}
+                    WHERE m.trang_thai = 1 AND mk.id_thuoc_tinh IN (?) ${excludedIds.length > 0 ? 'AND m.ma_mon NOT IN (?)' : ''}
                     GROUP BY m.ma_mon
                     ORDER BY avg_rating DESC
                     LIMIT ?
                 `;
                 const params = excludedIds.length > 0 
-                    ? [preferredCatIds, excludedIds, limit - recommendations.length]
-                    : [preferredCatIds, limit - recommendations.length];
+                    ? [preferredFlavorIds, excludedIds, limit - recommendations.length]
+                    : [preferredFlavorIds, limit - recommendations.length];
                 
                 const [extraDishes] = await db.query(query, params);
                 if (extraDishes.length > 0) {
                     extraDishes.forEach((item, index) => {
                         item.score = 69 - index;
                         item.recommendation_type = 'content_based';
-                        item.reason = `Phù hợp với sở thích của bạn (${item.ten_danh_muc})`;
+                        item.reason = `Phù hợp với khẩu vị của bạn (${item.flavor_names || 'Khẩu vị yêu thích'})`;
                     });
                     recommendations.push(...extraDishes);
                 }
@@ -854,24 +975,29 @@ router.get('/', async (req, res) => {
                 const excludedIds = recommendations.map(r => r.ma_mon);
                 const trendingLimit = limit - recommendations.length;
                 
-                // Nếu có sở thích rõ ràng, ưu tiên bổ sung trending cùng danh mục, nếu không thì trending chung
                 let trending = [];
-                if (preferredCatIds.length > 0) {
+                if (preferredFlavorIds.length > 0) {
                     const query = `
-                        SELECT m.*, d.ten_danh_muc, COUNT(ct.ma_ct_don) as order_count, AVG(dg.so_sao) as avg_rating
+                        SELECT m.*, d.ten_danh_muc, COUNT(ct.ma_ct_don) as order_count, AVG(dg.so_sao) as avg_rating,
+                               GROUP_CONCAT(DISTINCT f.ten_thuoc_tinh SEPARATOR ', ') as flavor_names
                         FROM mon_an m
                         LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
+                        JOIN mon_an_khau_vi mk ON m.ma_mon = mk.ma_mon
+                        LEFT JOIN thuoc_tinh_khau_vi f ON mk.id_thuoc_tinh = f.id
                         LEFT JOIN chi_tiet_don_hang ct ON m.ma_mon = ct.ma_mon
                         LEFT JOIN don_hang dh ON ct.ma_don_hang = dh.ma_don_hang AND dh.thoi_gian_tao >= DATE_SUB(NOW(), INTERVAL 7 DAY)
                         LEFT JOIN danh_gia_san_pham dg ON m.ma_mon = dg.ma_mon AND dg.trang_thai = 'approved'
-                        WHERE m.trang_thai = 1 AND m.ma_danh_muc IN (?) ${excludedIds.length > 0 ? 'AND m.ma_mon NOT IN (?)' : ''}
+                        WHERE m.trang_thai = 1 AND mk.id_thuoc_tinh IN (?) ${excludedIds.length > 0 ? 'AND m.ma_mon NOT IN (?)' : ''}
                         GROUP BY m.ma_mon
                         ORDER BY order_count DESC, avg_rating DESC
                         LIMIT ?
                     `;
-                    const params = excludedIds.length > 0 ? [preferredCatIds, excludedIds, trendingLimit] : [preferredCatIds, trendingLimit];
+                    const params = excludedIds.length > 0 ? [preferredFlavorIds, excludedIds, trendingLimit] : [preferredFlavorIds, trendingLimit];
                     const [res] = await db.query(query, params);
-                    trending = res;
+                    trending = res.map(t => ({
+                        ...t,
+                        reason: `Phù hợp với khẩu vị của bạn (${t.flavor_names || 'Khẩu vị yêu thích'})`
+                    }));
                 }
                 
                 // Nếu vẫn thiếu, lấy trending chung
@@ -965,25 +1091,19 @@ router.get('/', async (req, res) => {
  * API: Lưu sở thích người dùng (Cold Start)
  * POST /api/recommendations/preferences
  */
+// API: Lưu cấu hình sở thích (sau khi sửa popup -> Lưu Khẩu Vị)
 router.post('/preferences', async (req, res) => {
     try {
         const userId = getUserFromToken(req);
         if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-        const { categoryIds, keywords } = req.body; 
+        const { flavorIds } = req.body; 
         
-        // 1. Lưu danh mục (nếu có)
-        if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
-            await db.query('DELETE FROM so_thich_nguoi_dung WHERE ma_nguoi_dung = ?', [userId]);
-            const values = categoryIds.map(catId => [userId, catId]);
-            await db.query('INSERT IGNORE INTO so_thich_nguoi_dung (ma_nguoi_dung, ma_danh_muc) VALUES ?', [values]);
-        }
-
-        // 2. Lưu khẩu vị / từ khóa vào bảng dữ liệu tìm kiếm (giúp AI nhận diện)
-        if (keywords && Array.isArray(keywords) && keywords.length > 0) {
-            // Giả lập lịch sử tìm kiếm để AI học từ khóa
-            const keywordValues = keywords.map(kw => [kw, userId]);
-            await db.query('INSERT INTO du_lieu_tim_kiem (tu_khoa, ma_nguoi_dung) VALUES ?', [keywordValues]);
+        // 1. Lưu khẩu vị
+        if (flavorIds && Array.isArray(flavorIds) && flavorIds.length > 0) {
+            await db.query('DELETE FROM so_thich_khau_vi_nguoi_dung WHERE ma_nguoi_dung = ?', [userId]);
+            const values = flavorIds.map(fid => [userId, fid]);
+            await db.query('INSERT IGNORE INTO so_thich_khau_vi_nguoi_dung (ma_nguoi_dung, id_thuoc_tinh) VALUES ?', [values]);
         }
 
         res.json({ success: true, message: 'Lưu cấu hình cá nhân hóa thành công' });
@@ -1002,18 +1122,13 @@ router.get('/check-preferences', async (req, res) => {
         const userId = getUserFromToken(req);
         if (!userId) return res.json({ success: true, hasPreferences: false }); // Guest
 
-        // Kiểm tra đồng thời cả 2 bảng: Sở thích danh mục (Explicit) và Từ khóa khảo sát (Implicit/Keywords)
-        const [catRows] = await db.query(
-            'SELECT COUNT(*) as count FROM so_thich_nguoi_dung WHERE ma_nguoi_dung = ?',
+        // BẮT BUỘC TẤT CẢ USER LÀM LẠI KHẢO SÁT THEO KHẨU VỊ (Check bảng mới)
+        const [flavorRows] = await db.query(
+            'SELECT COUNT(*) as count FROM so_thich_khau_vi_nguoi_dung WHERE ma_nguoi_dung = ?',
             [userId]
         );
         
-        const [kwRows] = await db.query(
-            'SELECT COUNT(*) as count FROM du_lieu_tim_kiem WHERE ma_nguoi_dung = ?',
-            [userId]
-        );
-        
-        const hasPrefs = catRows[0].count > 0 || kwRows[0].count > 0;
+        const hasPrefs = flavorRows[0].count > 0;
         res.json({ success: true, hasPreferences: hasPrefs });
     } catch (error) {
         console.error('Error checking preferences:', error);
@@ -1236,14 +1351,306 @@ router.post('/track', async (req, res) => {
             });
         }
         
-        // Lưu vào bảng tracking (nếu có)
-        // Hiện tại chỉ log để phân tích sau
-        console.log(`📊 Recommendation tracking: user=${userId}, dish=${dish_id}, action=${action}`);
+        // Lưu vào bảng hanh_vi_nguoi_dung để phân tích
+        try {
+            let dbAction = 'view';
+            if (action === 'click' || action === 'like') {
+                dbAction = 'click';
+            } else if (action === 'add_cart' || action === 'add_to_cart') {
+                dbAction = 'add_to_cart';
+            } else if (action === 'purchase') {
+                dbAction = 'purchase';
+            }
+
+            await db.query(
+                `INSERT INTO hanh_vi_nguoi_dung (ma_nguoi_dung, ma_mon, hanh_vi, thoi_gian) VALUES (?, ?, ?, NOW())`,
+                [userId || null, dish_id, dbAction]
+            );
+            console.log(`📊 [DB Track] Recorded interaction: user=${userId}, dish=${dish_id}, action=${dbAction}`);
+        } catch (dbErr) {
+            console.error('Error inserting click tracking to DB:', dbErr.message);
+        }
         
         res.json({ success: true });
     } catch (error) {
         console.error('Error tracking:', error.message);
         res.status(500).json({ success: false });
+    }
+});
+
+/**
+ * API: Lấy thống kê sở thích người dùng (Admin)
+ * GET /api/recommendations/admin/stats
+ */
+router.get('/admin/stats', async (req, res) => {
+    try {
+        // Kiểm tra quyền truy cập (Admin hoặc Staff)
+        if ((!req.session || !req.session.admin) && (!req.session || !req.session.staff)) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized - Admin or Staff only'
+            });
+        }
+
+        const preferenceService = require('../services/preferenceService');
+
+        // 1. Thống kê Khẩu vị được yêu thích (Explicit)
+        const [categories] = await db.query(`
+            SELECT f.id as ma_danh_muc, f.ten_thuoc_tinh as ten_danh_muc, COUNT(s.ma_nguoi_dung) as total_users
+            FROM thuoc_tinh_khau_vi f
+            LEFT JOIN so_thich_khau_vi_nguoi_dung s ON f.id = s.id_thuoc_tinh
+            GROUP BY f.id, f.ten_thuoc_tinh
+            ORDER BY total_users DESC
+        `);
+
+        // 2. Thống kê Từ khóa / Khẩu vị phổ biến từ món đã đặt (Implicit)
+        const [dishKeywords] = await db.query(`
+            SELECT m.ten_mon, COUNT(ct.ma_ct_don) as total_orders
+            FROM chi_tiet_don_hang ct
+            JOIN mon_an m ON ct.ma_mon = m.ma_mon
+            GROUP BY m.ma_mon, m.ten_mon
+        `);
+
+        const keywordStats = {};
+        for (const row of dishKeywords) {
+            for (const tag of preferenceService.TAG_DEFINITIONS) {
+                const text = preferenceService.normalizeText(row.ten_mon);
+                const synonyms = tag.synonyms.map(preferenceService.normalizeText).filter(Boolean);
+                const isMatched = synonyms.some(phrase => {
+                    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    return new RegExp(`(^|\\s)${escaped}(\\s|$)`).test(text);
+                });
+                if (isMatched) {
+                    keywordStats[tag.label] = (keywordStats[tag.label] || 0) + Number(row.total_orders || 0);
+                }
+            }
+        }
+
+        const keywordsList = Object.entries(keywordStats)
+            .map(([keyword, total_orders]) => ({ keyword, total_orders }))
+            .sort((a, b) => b.total_orders - a.total_orders)
+            .slice(0, 10);
+
+        // 3. Sở thích từ đánh giá (Positive & Negative Preference Tags)
+        const { positiveTags, negativeTags } = await preferenceService.getAdminPreferenceStats(20);
+
+        // 4. Danh sách hồ sơ Khẩu vị khách hàng
+        const [users] = await db.query(`
+            SELECT 
+                n.ma_nguoi_dung, 
+                n.ten_nguoi_dung as ho_ten, 
+                n.so_dien_thoai,
+                GROUP_CONCAT(DISTINCT f.ten_thuoc_tinh SEPARATOR ', ') as ten_danh_muc_thich,
+                COUNT(DISTINCT dh.ma_don_hang) as total_orders,
+                COALESCE(SUM(dh.tong_tien), 0) as total_spent
+            FROM nguoi_dung n
+            LEFT JOIN so_thich_khau_vi_nguoi_dung s ON n.ma_nguoi_dung = s.ma_nguoi_dung
+            LEFT JOIN thuoc_tinh_khau_vi f ON s.id_thuoc_tinh = f.id
+            LEFT JOIN don_hang dh ON n.ma_nguoi_dung = dh.ma_nguoi_dung AND dh.trang_thai = 'completed'
+            GROUP BY n.ma_nguoi_dung, n.ten_nguoi_dung, n.so_dien_thoai
+            ORDER BY total_orders DESC, total_spent DESC
+            LIMIT 50
+        `);
+
+        if (users.length > 0) {
+            const userIds = users.map(u => u.ma_nguoi_dung);
+            const profiles = await preferenceService.getProfilesForUsers(userIds);
+            
+            // Lấy món ăn được click nhiều nhất cho từng user
+            let userTopDishes = {};
+            let userTopFlavors = {};
+            
+            try {
+                const [topDishClicksRows] = await db.query(`
+                    SELECT h.ma_nguoi_dung, m.ten_mon, COUNT(h.id) as click_count
+                    FROM hanh_vi_nguoi_dung h
+                    JOIN mon_an m ON h.ma_mon = m.ma_mon
+                    WHERE h.ma_nguoi_dung IN (?) AND h.hanh_vi IN ('click', 'view')
+                    GROUP BY h.ma_nguoi_dung, m.ma_mon, m.ten_mon
+                `, [userIds]);
+
+                // Lấy khẩu vị được click nhiều nhất cho từng user
+                const [topFlavorClicksRows] = await db.query(`
+                    SELECT h.ma_nguoi_dung, f.ten_thuoc_tinh, COUNT(h.id) as click_count
+                    FROM hanh_vi_nguoi_dung h
+                    JOIN mon_an_khau_vi mk ON h.ma_mon = mk.ma_mon
+                    JOIN thuoc_tinh_khau_vi f ON mk.id_thuoc_tinh = f.id
+                    WHERE h.ma_nguoi_dung IN (?) AND h.hanh_vi IN ('click', 'view')
+                    GROUP BY h.ma_nguoi_dung, f.id, f.ten_thuoc_tinh
+                `, [userIds]);
+
+                // Nhóm dữ liệu theo ma_nguoi_dung
+                topDishClicksRows.forEach(row => {
+                    if (!userTopDishes[row.ma_nguoi_dung] || row.click_count > userTopDishes[row.ma_nguoi_dung].click_count) {
+                        userTopDishes[row.ma_nguoi_dung] = { ten_mon: row.ten_mon, click_count: row.click_count };
+                    }
+                });
+
+                topFlavorClicksRows.forEach(row => {
+                    if (!userTopFlavors[row.ma_nguoi_dung]) {
+                        userTopFlavors[row.ma_nguoi_dung] = [];
+                    }
+                    userTopFlavors[row.ma_nguoi_dung].push(row);
+                });
+
+                // Sắp xếp giảm dần và lấy tối đa top 3 khẩu vị click nhiều nhất
+                Object.keys(userTopFlavors).forEach(uId => {
+                    userTopFlavors[uId] = userTopFlavors[uId]
+                        .sort((a, b) => b.click_count - a.click_count)
+                        .slice(0, 3);
+                });
+            } catch (dbErr) {
+                console.error('Error fetching user-specific click analytics:', dbErr.message);
+            }
+
+            users.forEach(u => {
+                u.preference_tags = profiles[u.ma_nguoi_dung] || [];
+                u.top_dish_click = userTopDishes[u.ma_nguoi_dung] || null;
+                u.top_flavors_click = userTopFlavors[u.ma_nguoi_dung] || [];
+            });
+        }
+
+        // 5. Thống kê số lượt click chuột / xem món ăn (Dish Click/View Counts)
+        const [dishClicks] = await db.query(`
+            SELECT m.ma_mon, m.ten_mon, COUNT(h.id) as total_clicks
+            FROM hanh_vi_nguoi_dung h
+            JOIN mon_an m ON h.ma_mon = m.ma_mon
+            WHERE h.hanh_vi IN ('click', 'view')
+            GROUP BY m.ma_mon, m.ten_mon
+            ORDER BY total_clicks DESC
+            LIMIT 10
+        `);
+
+        // 6. Thống kê số lượt click chuột theo nhóm khẩu vị (Flavor Click/View Counts)
+        const [flavorClicks] = await db.query(`
+            SELECT f.id as id_thuoc_tinh, f.ten_thuoc_tinh as ten_khau_vi, COUNT(h.id) as total_clicks
+            FROM hanh_vi_nguoi_dung h
+            JOIN mon_an_khau_vi mk ON h.ma_mon = mk.ma_mon
+            JOIN thuoc_tinh_khau_vi f ON mk.id_thuoc_tinh = f.id
+            WHERE h.hanh_vi IN ('click', 'view')
+            GROUP BY f.id, f.ten_thuoc_tinh
+            ORDER BY total_clicks DESC
+            LIMIT 10
+        `);
+
+        // 7. Tính độ đồng điệu giữa các khách hàng (Collaborative Filtering Similarity Groups)
+        let similarityGroups = [];
+        try {
+            const [allUsersList] = await db.query('SELECT ma_nguoi_dung, ten_nguoi_dung, so_dien_thoai FROM nguoi_dung');
+            const [allFlavorsList] = await db.query('SELECT id, ten_thuoc_tinh FROM thuoc_tinh_khau_vi');
+            const [allExplicitPrefs] = await db.query('SELECT ma_nguoi_dung, id_thuoc_tinh FROM so_thich_khau_vi_nguoi_dung');
+            const [allImplicitPrefs] = await db.query(`
+                SELECT h.ma_nguoi_dung, mk.id_thuoc_tinh, COUNT(h.id) as click_count
+                FROM hanh_vi_nguoi_dung h
+                JOIN mon_an_khau_vi mk ON h.ma_mon = mk.ma_mon
+                WHERE h.hanh_vi IN ('click', 'view')
+                GROUP BY h.ma_nguoi_dung, mk.id_thuoc_tinh
+            `);
+
+            const vectors = {};
+            allUsersList.forEach(u => {
+                vectors[u.ma_nguoi_dung] = {};
+                allFlavorsList.forEach(f => {
+                    vectors[u.ma_nguoi_dung][f.id] = 0;
+                });
+            });
+
+            allExplicitPrefs.forEach(row => {
+                if (vectors[row.ma_nguoi_dung]) {
+                    vectors[row.ma_nguoi_dung][row.id_thuoc_tinh] += 3.0;
+                }
+            });
+
+            allImplicitPrefs.forEach(row => {
+                if (vectors[row.ma_nguoi_dung]) {
+                    vectors[row.ma_nguoi_dung][row.id_thuoc_tinh] += Math.min(2.0, row.click_count * 0.2);
+                }
+            });
+
+            for (let i = 0; i < allUsersList.length; i++) {
+                for (let j = i + 1; j < allUsersList.length; j++) {
+                    const uA = allUsersList[i];
+                    const uB = allUsersList[j];
+                    
+                    const vecA = vectors[uA.ma_nguoi_dung];
+                    const vecB = vectors[uB.ma_nguoi_dung];
+                    
+                    let dotProduct = 0;
+                    let normA = 0;
+                    let normB = 0;
+                    
+                    allFlavorsList.forEach(f => {
+                        const valA = vecA[f.id] || 0;
+                        const valB = vecB[f.id] || 0;
+                        dotProduct += valA * valB;
+                        normA += valA * valA;
+                        normB += valB * valB;
+                    });
+                    
+                    const similarity = normA === 0 || normB === 0 ? 0 : dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+                    
+                    if (similarity > 0.1) {
+                        const sharedFlavors = allFlavorsList
+                            .filter(f => (vecA[f.id] > 0) && (vecB[f.id] > 0))
+                            .map(f => f.ten_thuoc_tinh);
+                            
+                        similarityGroups.push({
+                            userA: { id: uA.ma_nguoi_dung, name: uA.ten_nguoi_dung, phone: uA.so_dien_thoai },
+                            userB: { id: uB.ma_nguoi_dung, name: uB.ten_nguoi_dung, phone: uB.so_dien_thoai },
+                            similarity: Math.round(similarity * 100),
+                            sharedFlavors
+                        });
+                    }
+                }
+            }
+            similarityGroups.sort((a, b) => b.similarity - a.similarity);
+        } catch (simErr) {
+            console.error('Error calculating collaborative similarity groups:', simErr.message);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                categories,
+                keywords: keywordsList,
+                preferenceTags: positiveTags,
+                negativePreferenceTags: negativeTags,
+                users,
+                dishClicks,
+                flavorClicks,
+                similarityGroups
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching admin preference stats:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+});
+
+/**
+ * API: Huấn luyện lại / Cập nhật hồ sơ sở thích khách hàng từ đánh giá
+ * POST /api/recommendations/admin/rebuild-preferences
+ */
+router.post('/admin/rebuild-preferences', async (req, res) => {
+    try {
+        // Kiểm tra quyền truy cập (Admin hoặc Staff)
+        if ((!req.session || !req.session.admin) && (!req.session || !req.session.staff)) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized - Admin or Staff only'
+            });
+        }
+
+        const preferenceService = require('../services/preferenceService');
+        const result = await preferenceService.rebuildAllReviewPreferences();
+        res.json({
+            success: true,
+            message: 'Đã huấn luyện lại sở thích từ đánh giá thành công',
+            data: result
+        });
+    } catch (error) {
+        console.error('Error rebuilding preferences:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server' });
     }
 });
 

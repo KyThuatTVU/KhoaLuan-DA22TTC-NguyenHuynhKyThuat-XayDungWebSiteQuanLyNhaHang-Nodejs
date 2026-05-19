@@ -45,7 +45,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                     <!-- Categories Chart -->
                     <div class="content-card">
-                        <h2 class="text-lg font-bold text-slate-800 mb-4">Danh mục được yêu thích (Explicit)</h2>
+                        <h2 class="text-lg font-bold text-slate-800 mb-4">Khẩu vị được yêu thích (Explicit)</h2>
                         <div class="relative h-64 w-full">
                             <canvas id="categoryChart"></canvas>
                         </div>
@@ -83,6 +83,63 @@
                     </div>
                 </div>
 
+                <!-- Customer Click Analytics Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                    <!-- Top Dish Clicks -->
+                    <div class="content-card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-slate-800 flex items-center">
+                                <i class="fas fa-mouse-pointer text-orange-500 mr-2"></i>Top Món Ăn Được Click/Xem Nhiều Nhất
+                            </h2>
+                            <span class="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Theo Lượt Xem Chi Tiết</span>
+                        </div>
+                        <div class="overflow-y-auto max-h-72">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="text-slate-500 text-xs uppercase border-b border-slate-100">
+                                        <th class="py-2 px-1 font-semibold text-slate-600">Tên món ăn</th>
+                                        <th class="py-2 px-1 font-semibold text-right text-slate-600 w-32">Số lượt click</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="top-dish-clicks-body" class="divide-y divide-slate-50 text-sm">
+                                    <tr>
+                                        <td colspan="2" class="py-4 text-center text-slate-400">Đang tải dữ liệu...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Flavor Group Clicks -->
+                    <div class="content-card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-slate-800 flex items-center">
+                                <i class="fas fa-fire text-rose-500 mr-2"></i>Nhóm Khẩu Vị Được Click Nhiều Nhất
+                            </h2>
+                            <span class="text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-1 rounded-full">Hành Vi Theo Session</span>
+                        </div>
+                        <div id="top-flavor-clicks-body" class="space-y-4 max-h-72 overflow-y-auto pr-1">
+                            <div class="py-6 text-center text-slate-400">Đang tải dữ liệu...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Collaborative Taste Twins (Similarity Groups) -->
+                <div class="content-card mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center">
+                            <i class="fas fa-people-arrows text-indigo-500 mr-2"></i>Nhóm Đồng Điệu Sở Thích AI (Taste Twins - Lọc Cộng Tác)
+                        </h2>
+                        <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">Phát Hiện Bằng Cosine Similarity</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4">Hệ thống AI tự động đo lường khoảng cách sở thích giữa từng cặp tài khoản khách hàng để phát hiện mức độ tương đồng khẩu vị thực tế (tính từ hành vi click xem món và khảo sát khai vị ban đầu). Các cặp đồng điệu sẽ được nạp làm đầu vào trực tiếp cho thuật toán Lọc cộng tác (Collaborative Filtering).</p>
+                    <div id="similarity-groups-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="col-span-full py-8 text-center text-slate-400">
+                            <i class="fas fa-brain fa-spin mr-2 text-indigo-400"></i> Đang tính toán độ đồng điệu AI...
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Users List -->
                 <div class="content-card mb-6">
                     <h2 class="text-lg font-bold text-slate-800 mb-4">Hồ sơ Sở thích Khách hàng Nổi bật</h2>
@@ -92,7 +149,9 @@
                                 <tr class="bg-slate-50 text-slate-600 text-sm border-b border-slate-200">
                                     <th class="py-3 px-4 font-semibold">Khách hàng</th>
                                     <th class="py-3 px-4 font-semibold">Liên hệ</th>
-                                    <th class="py-3 px-4 font-semibold">Sở thích khai báo</th>
+                                    <th class="py-3 px-4 font-semibold">Khẩu vị khai báo</th>
+                                    <th class="py-3 px-4 font-semibold">Khẩu vị từ click (Implicit)</th>
+                                    <th class="py-3 px-4 font-semibold">Món quan tâm nhất</th>
                                     <th class="py-3 px-4 font-semibold">AI học từ đánh giá</th>
                                     <th class="py-3 px-4 font-semibold text-right">Tổng đơn</th>
                                     <th class="py-3 px-4 font-semibold text-right">Chi tiêu (VNĐ)</th>
@@ -100,7 +159,7 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100" id="users-table-body">
                                 <tr>
-                                    <td colspan="6" class="py-8 text-center text-slate-500">
+                                    <td colspan="8" class="py-8 text-center text-slate-500">
                                         <i class="fas fa-spinner fa-spin mr-2"></i> Đang tải dữ liệu...
                                     </td>
                                 </tr>
@@ -141,11 +200,13 @@
                     renderKeywordChart(data.data.keywords);
                     renderPreferenceTags(data.data.preferenceTags, data.data.negativePreferenceTags);
                     renderUsersTable(data.data.users);
+                    renderClickStats(data.data.dishClicks, data.data.flavorClicks);
+                    renderSimilarityGroups(data.data.similarityGroups);
                 }
             } catch (err) {
                 console.error(err);
                 document.getElementById('users-table-body').innerHTML = `
-                    <tr><td colspan="5" class="py-8 text-center text-red-500">
+                    <tr><td colspan="8" class="py-8 text-center text-red-500">
                         <i class="fas fa-exclamation-triangle mr-2"></i> Có lỗi xảy ra khi tải dữ liệu
                     </td></tr>
                 `;
@@ -285,7 +346,7 @@
             const tbody = document.getElementById('users-table-body');
             
             if (!users || users.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-500">Chưa có dữ liệu</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-500">Chưa có dữ liệu</td></tr>`;
                 return;
             }
             
@@ -300,6 +361,25 @@
                         ${user.ten_danh_muc_thich ? 
                             user.ten_danh_muc_thich.split(', ').map(t => `<span class="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full mr-1 mb-1">${t}</span>`).join('') 
                             : '<span class="text-slate-400 italic">Chưa khai báo</span>'
+                        }
+                    </td>
+                    <td class="py-3 px-4 border-b border-slate-100 text-slate-800">
+                        ${user.top_flavors_click && user.top_flavors_click.length > 0 ? 
+                            user.top_flavors_click.map(f => {
+                                const badgeColor = f.click_count >= 5 ? 'bg-orange-100 text-orange-800 font-bold border border-orange-200' : 'bg-slate-100 text-slate-700';
+                                return `<span class="inline-block ${badgeColor} text-xs px-2 py-1 rounded-full mr-1 mb-1" title="Nhóm khẩu vị được click nhiều">${f.ten_thuoc_tinh} (${f.click_count} click)</span>`;
+                            }).join('') 
+                            : '<span class="text-slate-400 italic">Chưa click món nào</span>'
+                        }
+                    </td>
+                    <td class="py-3 px-4 border-b border-slate-100">
+                        ${user.top_dish_click ? 
+                            `<div class="text-slate-800 font-medium text-sm">${user.top_dish_click.ten_mon}</div>
+                             <div class="text-xs text-orange-600 font-semibold flex items-center gap-1 mt-0.5">
+                                 <i class="fas fa-mouse-pointer text-[10px]"></i>
+                                 <span>${user.top_dish_click.click_count} lượt click</span>
+                             </div>` 
+                            : '<span class="text-slate-400 italic">Chưa xem món nào</span>'
                         }
                     </td>
                     <td class="py-3 px-4 border-b border-slate-100 text-slate-800">
@@ -322,6 +402,119 @@
                 const score = Number(tag.score || 0);
                 const color = score >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700';
                 return `<span class="inline-block ${color} text-xs px-2 py-1 rounded-full mr-1 mb-1">${tag.ten_tag} (${score.toFixed(1)})</span>`;
+            }).join('');
+        }
+
+        function renderClickStats(dishClicks = [], flavorClicks = []) {
+            // Render Dish Clicks Table
+            const dishBody = document.getElementById('top-dish-clicks-body');
+            if (dishBody) {
+                if (!dishClicks || dishClicks.length === 0) {
+                    dishBody.innerHTML = `<tr><td colspan="2" class="py-4 text-center text-slate-400">Chưa ghi nhận lượt click món ăn nào</td></tr>`;
+                } else {
+                    const maxClicks = Math.max(...dishClicks.map(d => d.total_clicks), 1);
+                    dishBody.innerHTML = dishClicks.map((dish, index) => {
+                        const pct = Math.round((dish.total_clicks / maxClicks) * 100);
+                        return `
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2.5 px-1 font-medium text-slate-800">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">${index + 1}</span>
+                                        <span>${dish.ten_mon}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-1.5">
+                                        <div class="bg-orange-500 h-1.5 rounded-full" style="width: ${pct}%"></div>
+                                    </div>
+                                </td>
+                                <td class="py-2.5 px-1 text-right font-bold text-slate-700 w-32">${dish.total_clicks} click</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // Render Flavor Clicks Progress Bars
+            const flavorBody = document.getElementById('top-flavor-clicks-body');
+            if (flavorBody) {
+                if (!flavorClicks || flavorClicks.length === 0) {
+                    flavorBody.innerHTML = `<div class="py-6 text-center text-slate-400">Chưa ghi nhận lượt click khẩu vị nào</div>`;
+                } else {
+                    const maxFlavorClicks = Math.max(...flavorClicks.map(f => f.total_clicks), 1);
+                    flavorBody.innerHTML = flavorClicks.map((flavor, index) => {
+                        const pct = Math.round((flavor.total_clicks / maxFlavorClicks) * 100);
+                        const colors = ['bg-rose-500', 'bg-violet-500', 'bg-amber-500', 'bg-emerald-500', 'bg-cyan-500'];
+                        const colorClass = colors[index % colors.length];
+                        return `
+                            <div>
+                                <div class="flex items-center justify-between text-sm mb-1">
+                                    <span class="font-medium text-slate-700">${flavor.ten_khau_vi}</span>
+                                    <span class="text-xs font-semibold text-slate-500">${flavor.total_clicks} click</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                    <div class="${colorClass} h-2.5 rounded-full" style="width: ${pct}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+        }
+
+        function renderSimilarityGroups(groups = []) {
+            const container = document.getElementById('similarity-groups-container');
+            if (!container) return;
+
+            if (!groups || groups.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <i class="fas fa-people-arrows text-2xl mb-2 text-slate-300"></i>
+                        <p class="text-sm">Chưa có đủ dữ liệu hành vi để kết nhóm đồng điệu sở thích</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = groups.map(group => {
+                const badgeColor = group.similarity >= 80 ? 'bg-indigo-500 text-white' : 
+                                   group.similarity >= 50 ? 'bg-violet-500 text-white' : 'bg-slate-500 text-white';
+                
+                const sharedTags = group.sharedFlavors && group.sharedFlavors.length > 0 
+                    ? group.sharedFlavors.map(f => `<span class="inline-block bg-indigo-50 text-indigo-700 text-xs px-2 py-0.5 rounded-md font-medium mr-1 mb-1">🌿 ${f}</span>`).join('')
+                    : '<span class="text-xs text-slate-400 italic">Chưa giao thoa khẩu vị cụ thể</span>';
+
+                return `
+                    <div class="bg-gradient-to-br from-white to-slate-50 rounded-xl border border-slate-200 p-4 hover:shadow-md transition duration-300 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-[10px] font-bold tracking-wider uppercase text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Taste Twins</span>
+                                <span class="text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}">${group.similarity}% Tương đồng</span>
+                            </div>
+                            
+                            <!-- Users Names -->
+                            <div class="flex items-center justify-between bg-white border border-slate-100 rounded-lg p-2 mb-3 shadow-sm">
+                                <div class="text-center flex-1">
+                                    <div class="font-bold text-slate-800 text-xs sm:text-sm truncate w-24 mx-auto" title="${group.userA.name}">${group.userA.name}</div>
+                                    <div class="text-[10px] text-slate-400 mt-0.5">${group.userA.phone || 'Không số'}</div>
+                                </div>
+                                <div class="px-2 text-indigo-400 animate-pulse">
+                                    <i class="fas fa-arrows-left-right text-sm"></i>
+                                </div>
+                                <div class="text-center flex-1">
+                                    <div class="font-bold text-slate-800 text-xs sm:text-sm truncate w-24 mx-auto" title="${group.userB.name}">${group.userB.name}</div>
+                                    <div class="text-[10px] text-slate-400 mt-0.5">${group.userB.phone || 'Không số'}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Shared Flavors -->
+                        <div class="mt-2 pt-2.5 border-t border-slate-100">
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold mb-1">Khẩu vị giao thoa:</div>
+                            <div class="flex flex-wrap mt-1">
+                                ${sharedTags}
+                            </div>
+                        </div>
+                    </div>
+                `;
             }).join('');
         }
     </script>

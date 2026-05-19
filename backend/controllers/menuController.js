@@ -13,7 +13,12 @@ const getAllDishes = async (req, res) => {
         let query = `
             SELECT m.*, d.ten_danh_muc,
                    COALESCE(AVG(dg.so_sao), 0) as avg_rating,
-                   COUNT(DISTINCT dg.ma_danh_gia) as total_reviews
+                   COUNT(DISTINCT dg.ma_danh_gia) as total_reviews,
+                   (
+                       SELECT GROUP_CONCAT(id_thuoc_tinh)
+                       FROM mon_an_khau_vi
+                       WHERE ma_mon = m.ma_mon
+                   ) as khau_vi
             FROM mon_an m 
             LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
             LEFT JOIN danh_gia_san_pham dg ON m.ma_mon = dg.ma_mon AND dg.trang_thai = 'approved'
@@ -95,7 +100,12 @@ const getDishesByCategory = async (req, res) => {
 const getDishById = async (req, res) => {
     try {
         const [rows] = await db.query(`
-            SELECT m.*, d.ten_danh_muc 
+            SELECT m.*, d.ten_danh_muc,
+                   (
+                       SELECT GROUP_CONCAT(id_thuoc_tinh)
+                       FROM mon_an_khau_vi
+                       WHERE ma_mon = m.ma_mon
+                   ) as khau_vi
             FROM mon_an m 
             LEFT JOIN danh_muc d ON m.ma_danh_muc = d.ma_danh_muc
             WHERE m.ma_mon = ?
@@ -328,16 +338,63 @@ const createDish = async (req, res) => {
             warningMessage = ' ⚠️ Món ăn đã được tự động ẩn vì số lượng tồn = 0.';
         }
 
-        const [result] = await db.query(
-            `INSERT INTO mon_an (ten_mon, ma_danh_muc, gia_tien, dinh_luong, so_luong_ton, mo_ta_chi_tiet, trang_thai, anh_mon) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [ten_mon, ma_danh_muc, gia_tien, dinh_luong, stockQty, mo_ta_chi_tiet, finalStatus, anh_mon]
-        );
+        const connection = await db.getConnection();
+        let monId = null;
+
+        try {
+            await connection.beginTransaction();
+
+            const [result] = await connection.query(
+                `INSERT INTO mon_an (ten_mon, ma_danh_muc, gia_tien, dinh_luong, so_luong_ton, mo_ta_chi_tiet, trang_thai, anh_mon) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [ten_mon, ma_danh_muc, gia_tien, dinh_luong, stockQty, mo_ta_chi_tiet, finalStatus, anh_mon]
+            );
+
+            monId = result.insertId;
+
+            // Xử lý khẩu vị món ăn
+            if (req.body.khau_vi) {
+                let khauViIds = [];
+                const rawVal = req.body.khau_vi;
+                if (typeof rawVal === 'string') {
+                    try {
+                        const parsed = JSON.parse(rawVal);
+                        if (Array.isArray(parsed)) {
+                            khauViIds = parsed.map(id => parseInt(id)).filter(id => !isNaN(id));
+                        } else if (!isNaN(parseInt(parsed))) {
+                            khauViIds = [parseInt(parsed)];
+                        }
+                    } catch (e) {
+                        if (rawVal.includes(',')) {
+                            khauViIds = rawVal.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+                        } else if (!isNaN(parseInt(rawVal))) {
+                            khauViIds = [parseInt(rawVal)];
+                        }
+                    }
+                } else if (Array.isArray(rawVal)) {
+                    khauViIds = rawVal.map(id => parseInt(id)).filter(id => !isNaN(id));
+                } else if (!isNaN(parseInt(rawVal))) {
+                    khauViIds = [parseInt(rawVal)];
+                }
+                
+                if (Array.isArray(khauViIds) && khauViIds.length > 0) {
+                    const values = khauViIds.map(id => [monId, id]);
+                    await connection.query('INSERT IGNORE INTO mon_an_khau_vi (ma_mon, id_thuoc_tinh) VALUES ?', [values]);
+                }
+            }
+
+            await connection.commit();
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
 
         res.json({
             success: true,
             message: 'Thêm món ăn thành công!' + warningMessage,
-            id: result.insertId,
+            id: monId,
             outOfStock: stockQty === 0
         });
     } catch (error) {
@@ -366,16 +423,64 @@ const updateDish = async (req, res) => {
             warningMessage = ` ⚠️ Lưu ý: Món ăn sắp hết hàng (còn ${stockQty}).`;
         }
 
-        const [result] = await db.query(
-            `UPDATE mon_an 
-             SET ten_mon = ?, ma_danh_muc = ?, gia_tien = ?, dinh_luong = ?, so_luong_ton = ?, 
-                 mo_ta_chi_tiet = ?, trang_thai = ?, anh_mon = COALESCE(?, anh_mon)
-             WHERE ma_mon = ?`,
-            [ten_mon, ma_danh_muc, gia_tien, dinh_luong, stockQty, mo_ta_chi_tiet, finalStatus, anh_mon, req.params.id]
-        );
+        const connection = await db.getConnection();
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy món ăn' });
+        try {
+            await connection.beginTransaction();
+
+            const [result] = await connection.query(
+                `UPDATE mon_an 
+                 SET ten_mon = ?, ma_danh_muc = ?, gia_tien = ?, dinh_luong = ?, so_luong_ton = ?, 
+                     mo_ta_chi_tiet = ?, trang_thai = ?, anh_mon = COALESCE(?, anh_mon)
+                 WHERE ma_mon = ?`,
+                [ten_mon, ma_danh_muc, gia_tien, dinh_luong, stockQty, mo_ta_chi_tiet, finalStatus, anh_mon, req.params.id]
+            );
+
+            if (result.affectedRows === 0) {
+                await connection.rollback();
+                return res.status(404).json({ success: false, message: 'Không tìm thấy món ăn' });
+            }
+
+            // Xử lý khẩu vị món ăn
+            if (req.body.khau_vi !== undefined) {
+                let khauViIds = [];
+                if (req.body.khau_vi) {
+                    const rawVal = req.body.khau_vi;
+                    if (typeof rawVal === 'string') {
+                        try {
+                            const parsed = JSON.parse(rawVal);
+                            if (Array.isArray(parsed)) {
+                                khauViIds = parsed.map(id => parseInt(id)).filter(id => !isNaN(id));
+                            } else if (!isNaN(parseInt(parsed))) {
+                                khauViIds = [parseInt(parsed)];
+                            }
+                        } catch (e) {
+                            if (rawVal.includes(',')) {
+                                khauViIds = rawVal.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+                            } else if (!isNaN(parseInt(rawVal))) {
+                                khauViIds = [parseInt(rawVal)];
+                            }
+                        }
+                    } else if (Array.isArray(rawVal)) {
+                        khauViIds = rawVal.map(id => parseInt(id)).filter(id => !isNaN(id));
+                    } else if (!isNaN(parseInt(rawVal))) {
+                        khauViIds = [parseInt(rawVal)];
+                    }
+                }
+                
+                await connection.query('DELETE FROM mon_an_khau_vi WHERE ma_mon = ?', [req.params.id]);
+                if (Array.isArray(khauViIds) && khauViIds.length > 0) {
+                    const values = khauViIds.map(id => [req.params.id, id]);
+                    await connection.query('INSERT IGNORE INTO mon_an_khau_vi (ma_mon, id_thuoc_tinh) VALUES ?', [values]);
+                }
+            }
+
+            await connection.commit();
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
         }
 
         res.json({
@@ -443,6 +548,68 @@ const deleteDish = async (req, res) => {
     }
 };
 
+// Lấy danh sách khẩu vị
+const getFlavors = async (req, res) => {
+    try {
+        const [flavors] = await db.query('SELECT * FROM thuoc_tinh_khau_vi ORDER BY id');
+        res.json({ success: true, data: flavors });
+    } catch (error) {
+        console.error('Error fetching flavors:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const createFlavor = async (req, res) => {
+    try {
+        const { ten_thuoc_tinh } = req.body;
+        if (!ten_thuoc_tinh) {
+            return res.status(400).json({ success: false, message: 'Tên khẩu vị là bắt buộc' });
+        }
+        const [result] = await db.query('INSERT INTO thuoc_tinh_khau_vi (ten_thuoc_tinh) VALUES (?)', [ten_thuoc_tinh]);
+        res.json({ success: true, message: 'Thêm khẩu vị thành công', data: { id: result.insertId, ten_thuoc_tinh } });
+    } catch (error) {
+        console.error('Error creating flavor:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const updateFlavor = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { ten_thuoc_tinh } = req.body;
+        if (!ten_thuoc_tinh) {
+            return res.status(400).json({ success: false, message: 'Tên khẩu vị là bắt buộc' });
+        }
+        await db.query('UPDATE thuoc_tinh_khau_vi SET ten_thuoc_tinh = ? WHERE id = ?', [ten_thuoc_tinh, id]);
+        res.json({ success: true, message: 'Cập nhật khẩu vị thành công' });
+    } catch (error) {
+        console.error('Error updating flavor:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const deleteFlavor = async (req, res) => {
+    // Delete in a transaction or manually delete constraints
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        const { id } = req.params;
+        
+        await connection.query('DELETE FROM mon_an_khau_vi WHERE id_thuoc_tinh = ?', [id]);
+        await connection.query('DELETE FROM so_thich_khau_vi_nguoi_dung WHERE id_thuoc_tinh = ?', [id]);
+        await connection.query('DELETE FROM thuoc_tinh_khau_vi WHERE id = ?', [id]);
+        
+        await connection.commit();
+        res.json({ success: true, message: 'Xóa khẩu vị thành công' });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error deleting flavor:', error);
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        connection.release();
+    }
+};
+
 module.exports = {
     getAllDishes,
     getDishesByCategory,
@@ -453,5 +620,9 @@ module.exports = {
     updateStock,
     createDish,
     updateDish,
-    deleteDish
+    deleteDish,
+    getFlavors,
+    createFlavor,
+    updateFlavor,
+    deleteFlavor
 };

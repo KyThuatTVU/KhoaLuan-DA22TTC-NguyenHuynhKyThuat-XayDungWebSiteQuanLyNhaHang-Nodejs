@@ -767,7 +767,21 @@ font-bold text-gray-800 mb-4 sm:mb-6 text-center">
                 const token = localStorage.getItem('token') || sessionStorage.getItem('token');
                 const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
 
-                const response = await fetch('http://localhost:3000/api/recommendations?limit=8&t=' + Date.now(), { headers });
+                // Đọc các khẩu vị được xem nhiều (>= 5 lần) trong session của người dùng để truyền lên API
+                let boostParam = '';
+                try {
+                    const flavorViews = JSON.parse(sessionStorage.getItem('session_flavor_views') || '{}');
+                    const boostedFlavors = Object.entries(flavorViews)
+                        .filter(([fId, count]) => count >= 5)
+                        .map(([fId]) => fId);
+                    if (boostedFlavors.length > 0) {
+                        boostParam = '&session_boost_flavors=' + boostedFlavors.join(',');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+
+                const response = await fetch('http://localhost:3000/api/recommendations?limit=8&t=' + Date.now() + boostParam, { headers });
                 const result = await response.json();
                 
                 if (result.success && result.data && result.data.length > 0) {
@@ -802,9 +816,6 @@ font-bold text-gray-800 mb-4 sm:mb-6 text-center">
                                         <img src="${imageUrl}" alt="${dish.ten_mon}"
                                             class="w-full h-48 sm:h-56 md:h-64 object-cover"
                                             onerror="this.src='images/default-food.jpg'">
-                                        <span class="absolute top-2 left-2 sm:top-3 sm:left-3 ${badgeColor} text-white px-2 py-1 sm:px-3 rounded-full text-xs sm:text-sm font-medium">
-                                            <i class="fas ${badgeIcon} mr-1"></i>${badgeText}
-                                        </span>
                                         <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 sm:p-4 opacity-0 hover:opacity-100 transition-opacity flex justify-center items-end">
                                             <p class="text-white text-xs sm:text-sm text-center truncate">${dish.reason || 'Món ngon dành cho bạn'}</p>
                                         </div>
@@ -1912,70 +1923,14 @@ relative overflow-hidden">
                 <!-- Giao diện Khảo sát 3 bước -->
                 <div class="space-y-6 mb-6 overflow-y-auto pr-2 pref-scrollbar flex-1">
                     
-                    <!-- Nhóm 1: Loại hình bữa ăn (Categories) -->
+                    <!-- Nhóm 1: Khẩu vị (Flavors) -->
                     <div class="bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
                         <h4 class="font-bold text-slate-800 mb-3 flex items-center text-sm md:text-base">
                             <span class="pref-step-number text-white w-6 h-6 rounded-full flex items-center justify-center mr-2.5 text-xs font-extrabold">1</span> 
-                            Bạn thích kiểu món ăn nào nè? 😋
+                            Bạn chuộng khẩu vị/loại món ăn nào nhất? 😋
                         </h4>
                         <div id="categories-grid" class="flex flex-wrap gap-2.5 pl-8">
-                            <!-- Render qua API Categories -->
-                        </div>
-                    </div>
-
-                    <!-- Nhóm 2: Khẩu vị (Keywords) -->
-                    <div class="bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-                        <h4 class="font-bold text-slate-800 mb-3 flex items-center text-sm md:text-base">
-                            <span class="pref-step-number text-white w-6 h-6 rounded-full flex items-center justify-center mr-2.5 text-xs font-extrabold">2</span> 
-                            Bạn chuộng khẩu vị nào nhất? 🌶️🍯
-                        </h4>
-                        <div class="flex flex-wrap gap-2.5 pl-8" id="tastes-grid">
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="cay" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🌶️ Đồ cay nồng</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="ngọt" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🧁 Hảo ngọt</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="thanh đạm" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🥗 Thanh đạm / Healthy</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="đậm đà" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🍲 Đậm đà bản sắc</div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Nhóm 3: Nguyên liệu (Keywords) -->
-                    <div class="bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-                        <h4 class="font-bold text-slate-800 mb-3 flex items-center text-sm md:text-base">
-                            <span class="pref-step-number text-white w-6 h-6 rounded-full flex items-center justify-center mr-2.5 text-xs font-extrabold">3</span> 
-                            Bạn 'ghiền' món nào nhất? 🦞🥩
-                        </h4>
-                        <div class="flex flex-wrap gap-2.5 pl-8" id="ingredients-grid">
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="hải sản" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🦞 Trùm hải sản</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="thịt bò" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🥩 Tín đồ thịt bò</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="thịt gà" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🍗 Fan của thịt gà</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="rau củ" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🥦 Rau củ vạn tuế</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="checkbox" value="lẩu" class="pref-keyword hidden">
-                                <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">🍲 Nước lẩu sùm sụp</div>
-                            </label>
+                            <!-- Render qua API Flavors -->
                         </div>
                     </div>
 
@@ -2036,17 +1991,17 @@ relative overflow-hidden">
                     return;
                 }
 
-                // Lấy danh mục từ API
-                const res = await fetch('http://localhost:3000/api/categories?trang_thai=1');
+                // Lấy khẩu vị từ API thay vì danh mục
+                const res = await fetch('http://localhost:3000/api/menu/flavors');
                 const data = await res.json();
                 
                 if (data.success && data.data) {
                     const categoriesContainer = document.getElementById('categories-grid');
-                    categoriesContainer.innerHTML = data.data.map(cat => `
+                    categoriesContainer.innerHTML = data.data.map(flavor => `
                         <label class="cursor-pointer">
-                            <input type="checkbox" value="${cat.ma_danh_muc}" class="pref-category hidden">
+                            <input type="checkbox" value="${flavor.id}" class="pref-category hidden">
                             <div class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 transition-all duration-300 pref-pill-box">
-                                🍔 ${cat.ten_danh_muc}
+                                ${flavor.ten_thuoc_tinh}
                             </div>
                         </label>
                     `).join('');
@@ -2091,14 +2046,11 @@ relative overflow-hidden">
         }
 
         async function savePreferences() {
-            const categoryInputs = document.querySelectorAll('.pref-category:checked');
-            const categoryIds = Array.from(categoryInputs).map(i => parseInt(i.value));
+            const flavorInputs = document.querySelectorAll('.pref-category:checked');
+            const flavorIds = Array.from(flavorInputs).map(i => parseInt(i.value));
             
-            const keywordInputs = document.querySelectorAll('.pref-keyword:checked');
-            const keywords = Array.from(keywordInputs).map(i => i.value);
-
-            if (categoryIds.length === 0 && keywords.length === 0) {
-                alert('Vui lòng chọn ít nhất một sở thích món ăn của bạn nhé! Hoặc bấm "Bỏ qua nhen 🥲".');
+            if (flavorIds.length === 0) {
+                alert('Vui lòng chọn ít nhất một khẩu vị món ăn của bạn nhé! Hoặc bấm "Bỏ qua nhen 🥲".');
                 return;
             }
 
@@ -2110,7 +2062,7 @@ relative overflow-hidden">
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + token
                     },
-                    body: JSON.stringify({ categoryIds, keywords })
+                    body: JSON.stringify({ flavorIds })
                 });
                 
                 const data = await res.json();

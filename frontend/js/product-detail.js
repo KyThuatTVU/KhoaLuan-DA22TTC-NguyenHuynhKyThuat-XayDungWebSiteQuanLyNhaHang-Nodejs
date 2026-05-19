@@ -40,6 +40,41 @@ async function fetchProductDetail() {
         if (result.success) {
             currentProduct = result.data;
             console.log('✅ Món ăn:', currentProduct.ten_mon);
+            
+            // Client-side Session Flavor Click Tracking (Xem chi tiết món ăn)
+            if (currentProduct.khau_vi) {
+                try {
+                    const flavors = currentProduct.khau_vi.toString().split(',').map(id => id.trim());
+                    let flavorViews = JSON.parse(sessionStorage.getItem('session_flavor_views') || '{}');
+                    flavors.forEach(fId => {
+                        flavorViews[fId] = (flavorViews[fId] || 0) + 1;
+                    });
+                    sessionStorage.setItem('session_flavor_views', JSON.stringify(flavorViews));
+                    console.log('📈 [Session Track] Đã cập nhật số lần xem nhóm khẩu vị:', flavorViews);
+                } catch (e) {
+                    console.error('Error tracking session flavor view:', e);
+                }
+            }
+
+            // Send tracking record to backend for AI profile learning
+            try {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                fetch('http://localhost:3000/api/recommendations/track', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ dish_id: productId, action: 'click' })
+                }).then(r => r.json())
+                  .then(data => console.log('📈 [AI Tracking] Recorded click for dish:', productId, data))
+                  .catch(e => console.error('Error sending click tracking:', e));
+            } catch (trackErr) {
+                console.error('Error in click tracking flow:', trackErr);
+            }
+            
             console.log('💰 Giá:', currentProduct.gia_tien);
             console.log('🖼️ Ảnh:', currentProduct.anh_mon);
             console.log('📦 Tồn kho:', currentProduct.so_luong_ton, currentProduct.don_vi_tinh);

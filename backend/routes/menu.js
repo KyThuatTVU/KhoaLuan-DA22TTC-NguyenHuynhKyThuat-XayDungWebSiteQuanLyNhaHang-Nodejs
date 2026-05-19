@@ -56,6 +56,9 @@ router.get('/category/:id', menuController.getDishesByCategory);
 // Lấy top món bán chạy
 router.get('/top-selling', menuController.getTopSelling);
 
+// Lấy danh sách khẩu vị
+router.get('/flavors', menuController.getFlavors);
+
 // Gợi ý món ăn liên quan (ML)
 router.get('/related/:id', menuController.getRelatedDishes);
 
@@ -80,5 +83,10 @@ router.put('/:id', requireAdmin, upload.single('anh_mon'), menuController.update
 
 // Xóa món ăn
 router.delete('/:id', requireAdmin, menuController.deleteDish);
+
+// --- FLAVORS CRUD ---
+router.post('/flavors', requireAdmin, menuController.createFlavor);
+router.put('/flavors/:id', requireAdmin, menuController.updateFlavor);
+router.delete('/flavors/:id', requireAdmin, menuController.deleteFlavor);
 
 module.exports = router;

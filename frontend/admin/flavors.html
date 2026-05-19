@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Khẩu vị - Admin</title>
+    <link rel="icon" type="image/png" href="../images/Green Simple Clean Vegan Food Logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="admin-styles.css">
+    <link rel="stylesheet" href="admin-responsive.css">
+</head>
+<body>
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar Placeholder -->
+        <div id="sidebar-placeholder"></div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Sidebar Overlay -->
+            <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+            
+            <!-- Header Placeholder -->
+            <div id="header-placeholder"></div>
+
+            <main class="flex-1 overflow-y-auto p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-800">Quản lý Khẩu vị</h1>
+                        <p class="text-slate-500 text-sm">Phân loại món ăn theo các nhóm khẩu vị (Chua, cay, ít ngọt,...)</p>
+                    </div>
+                    <button onclick="openAddModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-200">
+                        <i class="fas fa-plus"></i>
+                        Thêm khẩu vị
+                    </button>
+                </div>
+                <!-- Filters -->
+                <div class="content-card mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="search" placeholder="Tìm kiếm khẩu vị..." class="px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <button onclick="applyFilters()" class="bg-slate-800 text-white px-4 py-2.5 rounded-xl hover:bg-slate-900 transition flex items-center justify-center">
+                            <i class="fas fa-filter mr-2"></i>Lọc
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Categories Grid -->
+                <div id="categories-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div class="col-span-full text-center py-12">
+                        <i class="fas fa-spinner fa-spin text-4xl text-slate-400 mb-4"></i>
+                        <p class="text-slate-500">Đang tải dữ liệu...</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="flavor-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full">
+            <div class="p-6 border-b flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-700 text-white rounded-t-2xl">
+                <h3 class="text-xl font-bold" id="modal-title">Thêm khẩu vị mới</h3>
+                <button onclick="closeModal()" class="text-white/70 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form id="flavor-form" class="p-6 space-y-4">
+                <input type="hidden" id="id">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Tên khẩu vị *</label>
+                    <input type="text" id="ten_thuoc_tinh" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500" placeholder="Ví dụ: Chua, Cay, Ít ngọt...">
+                </div>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeModal()" class="px-6 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50">Hủy</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold transition shadow-lg">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="admin-layout.js"></script>
+    <script src="admin-mobile.js"></script>
+
+    <script>
+        let flavors = [];
+
+        async function loadFlavors() {
+            try {
+                const response = await fetch(`${API_URL}/menu/flavors`);
+                const data = await response.json();
+                flavors = data.data || [];
+                renderFlavors(flavors);
+            } catch (error) {
+                console.error('Error loading flavors:', error);
+                document.getElementById('categories-container').innerHTML = `<div class="col-span-full text-center py-12"><i class="fas fa-exclamation-circle text-4xl text-red-400 mb-4"></i><p class="text-slate-500">Không thể tải dữ liệu</p></div>`;
+            }
+        }
+
+        function renderFlavors(items) {
+            const container = document.getElementById('categories-container');
+            if (items.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center py-12"><i class="fas fa-heart text-4xl text-slate-300 mb-4"></i><p class="text-slate-500">Chưa có khẩu vị nào</p></div>';
+                return;
+            }
+            container.innerHTML = items.map(flavor => {
+                return `
+                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition border border-slate-100 p-5">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center text-pink-600">
+                                <i class="fas fa-heart text-xl"></i>
+                            </div>
+                        </div>
+                        <h4 class="font-bold text-lg mb-2 text-slate-800">${flavor.ten_thuoc_tinh}</h4>
+                        <div class="flex space-x-2 mt-4">
+                            <button onclick="editFlavor(${flavor.id})" class="flex-1 bg-blue-50 text-blue-600 py-2.5 rounded-xl hover:bg-blue-100 transition text-sm font-medium"><i class="fas fa-edit mr-1"></i>Sửa</button>
+                            <button onclick="deleteFlavor(${flavor.id})" class="flex-1 bg-red-50 text-red-600 py-2.5 rounded-xl hover:bg-red-100 transition text-sm font-medium"><i class="fas fa-trash mr-1"></i>Xóa</button>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        function openAddModal() {
+            document.getElementById('modal-title').textContent = 'Thêm Khẩu Vị Mới';
+            document.getElementById('flavor-form').reset();
+            document.getElementById('id').value = '';
+            document.getElementById('flavor-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('flavor-modal').classList.add('hidden');
+        }
+
+        function editFlavor(id) {
+            const flavor = flavors.find(f => f.id === id);
+            if (!flavor) return;
+
+            document.getElementById('modal-title').textContent = 'Sửa Khẩu Vị';
+            document.getElementById('id').value = flavor.id;
+            document.getElementById('ten_thuoc_tinh').value = flavor.ten_thuoc_tinh;
+            
+            document.getElementById('flavor-modal').classList.remove('hidden');
+        }
+
+        async function deleteFlavor(id) {
+            if (!confirm('Bạn có chắc muốn xóa khẩu vị này? Tất cả các món ăn có khẩu vị này sẽ bị ảnh hưởng!')) return;
+            try {
+                const response = await fetch(`${API_URL}/menu/flavors/${id}`, { method: 'DELETE', credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Xóa thành công!', 'success');
+                    loadFlavors();
+                } else {
+                    showToast(data.message || 'Lỗi khi xóa', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showToast('Lỗi hệ thống', 'error');
+            }
+        }
+
+        document.getElementById('flavor-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('id').value;
+            const payload = {
+                ten_thuoc_tinh: document.getElementById('ten_thuoc_tinh').value
+            };
+
+            try {
+                const url = id ? `${API_URL}/menu/flavors/${id}` : `${API_URL}/menu/flavors`;
+                const response = await fetch(url, {
+                    method: id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(id ? 'Cập nhật thành công!' : 'Thêm thành công!', 'success');
+                    closeModal();
+                    loadFlavors();
+                } else {
+                    showToast(data.message || 'Lỗi lưu dữ liệu', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showToast('Lỗi hệ thống', 'error');
+            }
+        });
+
+        function filterFlavors() {
+            const searchObj = document.getElementById('search').value.toLowerCase();
+            const filtered = flavors.filter(f => f.ten_thuoc_tinh.toLowerCase().includes(searchObj));
+            renderFlavors(filtered);
+        }
+
+        function applyFilters() { filterFlavors(); }
+        document.getElementById('search').addEventListener('input', filterFlavors);
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-xl shadow-lg z-50 transition-all transform translate-y-0 max-w-md ${
+                type === 'success' ? 'bg-emerald-500 text-white' : 
+                type === 'error' ? 'bg-red-500 text-white' : 
+                'bg-slate-800 text-white'
+            }`;
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        loadFlavors();
+    </script>
+</body>
+</html>

@@ -58,6 +58,9 @@ const SIDEBAR_TEMPLATE = `
                 <a href="categories.html" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-xl menu-categories">
                     <i class="fas fa-tags w-5"></i><span class="text-sm font-medium">Danh mục</span>
                 </a>
+                        <a href="flavors.html" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-xl menu-flavors">
+                    <i class="fas fa-heart w-5"></i><span class="text-sm font-medium">Quản lý Khẩu vị</span>
+                </a>
                 <a href="nguyen-lieu.html" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-xl">
                     <i class="fas fa-boxes w-5"></i><span class="text-sm">Nguyên liệu</span>
                 </a>
@@ -497,6 +500,7 @@ async function applyRBAC(userData) {
         // Thực đơn
         'products.html': ['xem_menu'],
         'categories.html': ['xem_menu'],
+        'flavors.html': ['xem_menu'],
         'nguyen-lieu.html': ['xem_kho'],
         'loai-nguyen-lieu.html': ['xem_kho'],
         'cong-thuc.html': ['xem_cong_thuc'],
@@ -656,6 +660,7 @@ function redirectToDefaultPage(vai_tro) {
         'tables.html': ['xem_ban'],
         'products.html': ['xem_menu'],
         'categories.html': ['xem_menu'],
+        'flavors.html': ['xem_menu'],
         'nguyen-lieu.html': ['xem_kho'],
         'loai-nguyen-lieu.html': ['xem_kho'],
         'cong-thuc.html': ['xem_cong_thuc'],
@@ -790,7 +795,7 @@ function addMenuDataAttributes() {
         'admin-pos-new.html': 'admin-pos-new', 'admin-pos-tables.html': 'admin-pos-tables',
         'admin-pos-order.html': 'admin-pos-order', 'orders.html': 'orders',
         'reservations.html': 'reservations', 'tables.html': 'tables',
-        'products.html': 'products', 'categories.html': 'categories',
+        'products.html': 'products', 'categories.html': 'categories', 'flavors.html': 'flavors',
         'nguyen-lieu.html': 'nguyen-lieu', 'loai-nguyen-lieu.html': 'loai-nguyen-lieu',
         'cong-thuc.html': 'cong-thuc', 'nhap-hang.html': 'nhap-hang',
         'nha-cung-cap.html': 'nha-cung-cap', 'kiem-ke.html': 'kiem-ke',

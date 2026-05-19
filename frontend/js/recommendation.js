@@ -17,7 +17,21 @@ const RecommendationSystem = {
      */
     async getRecommendations(limit = 8) {
         try {
-            const response = await fetch(`${this.API_BASE}?limit=${limit}&t=${Date.now()}`, {
+            // Đọc các khẩu vị được xem nhiều (>= 5 lần) trong session của người dùng để truyền lên API
+            let boostParam = '';
+            try {
+                const flavorViews = JSON.parse(sessionStorage.getItem('session_flavor_views') || '{}');
+                const boostedFlavors = Object.entries(flavorViews)
+                    .filter(([fId, count]) => count >= 5)
+                    .map(([fId]) => fId);
+                if (boostedFlavors.length > 0) {
+                    boostParam = `&session_boost_flavors=${boostedFlavors.join(',')}`;
+                }
+            } catch (e) {
+                console.error('Error reading session_flavor_views:', e);
+            }
+
+            const response = await fetch(`${this.API_BASE}?limit=${limit}&t=${Date.now()}${boostParam}`, {
                 headers: this.getAuthHeader()
             });
             const result = await response.json();
@@ -150,28 +164,8 @@ const RecommendationSystem = {
         const ratingValue = dish.avg_rating ? parseFloat(dish.avg_rating) : 0;
         const rating = !isNaN(ratingValue) ? ratingValue.toFixed(1) : '0';
         
-        // Badge theo loại recommendation
+        // Badge theo loại recommendation (Được đặt trống để hoạt động âm thầm)
         let badge = '';
-        switch (dish.recommendation_type) {
-            case 'chat_based':
-                badge = '<span class="absolute top-2 left-2 bg-purple-500 text-white px-2 py-1 rounded-full text-xs">💬 Gợi ý từ Chat</span>';
-                break;
-            case 'collaborative':
-                badge = '<span class="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded-full text-xs">👥 Đề xuất cho bạn</span>';
-                break;
-            case 'content_based':
-                badge = '<span class="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs">❤️ Hợp khẩu vị</span>';
-                break;
-            case 'pairing':
-                badge = '<span class="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs">🍽️ Thường đặt cùng</span>';
-                break;
-            case 'trending':
-                badge = '<span class="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs">🔥 Đang Hot</span>';
-                break;
-            case 'top_rated':
-                badge = '<span class="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs">⭐ Đánh giá cao</span>';
-                break;
-        }
         
         return `
             <div class="recommendation-card bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1" 
